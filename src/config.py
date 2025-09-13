@@ -34,18 +34,9 @@ class MCPConfig:
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
         
-        # LeChat Memory Integration
-        self.lechat_api_url = os.getenv("LECHAT_API_URL", "https://api.lechat.ai")
-        self.lechat_api_key = os.getenv("LECHAT_API_KEY")
-        
-        # GitHub Integration (for audit trails)
+        # GitHub Integration (for audit trails) - Optional
         self.github_token = os.getenv("GITHUB_TOKEN")
         self.github_repository = os.getenv("GITHUB_REPOSITORY")
-        
-        # Linear/Jira Integration (for issue assignment)
-        self.linear_api_key = os.getenv("LINEAR_API_KEY")
-        self.jira_api_key = os.getenv("JIRA_API_KEY")
-        self.jira_base_url = os.getenv("JIRA_BASE_URL")
 
 
 # Global configuration instance

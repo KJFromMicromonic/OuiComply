@@ -28,7 +28,6 @@ import structlog
 
 from .config import get_config, validate_config, print_config_summary
 from .tools.compliance_engine import ComplianceEngine, ComplianceReport
-from .tools.memory_integration import LeChatMemoryService
 
 # Configure structured logging
 structlog.configure(
@@ -69,7 +68,6 @@ class OuiComplyMCPServer:
         self.config = get_config()
         self.server = Server("ouicomply-mcp")
         self.compliance_engine = ComplianceEngine()
-        self.memory_service = LeChatMemoryService()
         self._reports_cache = {}  # Cache for storing reports
         self._setup_handlers()
         
@@ -249,56 +247,6 @@ class OuiComplyMCPServer:
                     }
                 ),
                 Tool(
-                    name="store_assessment_in_memory",
-                    description="Store compliance assessment in LeChat memory for autonomous decision-making",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "report_id": {
-                                "type": "string",
-                                "description": "ID of the compliance report to store"
-                            },
-                            "user_id": {
-                                "type": "string",
-                                "description": "ID of the user (optional)"
-                            },
-                            "organization_id": {
-                                "type": "string",
-                                "description": "ID of the organization (optional)"
-                            }
-                        },
-                        "required": ["report_id"]
-                    }
-                ),
-                Tool(
-                    name="search_compliance_memories",
-                    description="Search stored compliance assessments in LeChat memory",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "type": "string",
-                                "description": "Search query for compliance memories"
-                            },
-                            "category": {
-                                "type": "string",
-                                "description": "Filter by memory category (optional)"
-                            },
-                            "tags": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "description": "Filter by tags (optional)"
-                            },
-                            "limit": {
-                                "type": "integer",
-                                "description": "Maximum number of results",
-                                "default": 10
-                            }
-                        },
-                        "required": ["query"]
-                    }
-                ),
-                Tool(
                     name="generate_audit_trail",
                     description="Generate audit trail entry for GitHub",
                     inputSchema={
@@ -386,10 +334,6 @@ class OuiComplyMCPServer:
                     return await self._handle_analyze_document_compliance(arguments)
                 elif name == "generate_compliance_report":
                     return await self._handle_generate_compliance_report(arguments)
-                elif name == "store_assessment_in_memory":
-                    return await self._handle_store_assessment_in_memory(arguments)
-                elif name == "search_compliance_memories":  
-                    return await self._handle_search_compliance_memories(arguments)
                 elif name == "generate_audit_trail":
                     return await self._handle_generate_audit_trail(arguments)
                 elif name == "get_compliance_history":
@@ -469,69 +413,6 @@ class OuiComplyMCPServer:
         
         return [TextContent(type="text", text=content)]
     
-    async def _handle_store_assessment_in_memory(self, arguments: Dict[str, Any]) -> List[TextContent]:
-        """Handle storing assessment in LeChat memory."""
-        report_id = arguments.get("report_id", "")
-        user_id = arguments.get("user_id")
-        organization_id = arguments.get("organization_id")
-        
-        if report_id not in self._reports_cache:
-            return [TextContent(
-                type="text", 
-                text=f"Report not found: {report_id}. Please run analysis first."
-            )]
-        
-        report = self._reports_cache[report_id]
-        
-        try:
-            memory_id = await self.memory_service.store_compliance_assessment(
-                report=report,
-                user_id=user_id,
-                organization_id=organization_id
-            )
-            
-            return [TextContent(
-                type="text", 
-                text=f"Assessment stored in LeChat memory with ID: {memory_id}"
-            )]
-        except Exception as e:
-            return [TextContent(
-                type="text", 
-                text=f"Failed to store assessment in memory: {str(e)}"
-            )]
-    
-    async def _handle_search_compliance_memories(self, arguments: Dict[str, Any]) -> List[TextContent]:
-        """Handle searching compliance memories."""
-        query = arguments.get("query", "")
-        category = arguments.get("category")
-        tags = arguments.get("tags")
-        limit = arguments.get("limit", 10)
-        
-        try:
-            results = await self.memory_service.search_memories(
-                query=query,
-                category=category,
-                tags=tags,
-                limit=limit
-            )
-            
-            if not results:
-                return [TextContent(type="text", text="No matching memories found.")]
-            
-            content = f"Found {len(results)} matching memories:\n\n"
-            for i, result in enumerate(results, 1):
-                content += f"{i}. **{result.title}**\n"
-                content += f"   Category: {result.category}\n"
-                content += f"   Relevance: {result.relevance_score:.2f}\n"
-                content += f"   Created: {result.created_at}\n"
-                content += f"   Content: {result.content[:200]}...\n\n"
-            
-            return [TextContent(type="text", text=content)]
-        except Exception as e:
-            return [TextContent(
-                type="text", 
-                text=f"Failed to search memories: {str(e)}"
-            )]
     
     async def _handle_generate_audit_trail(self, arguments: Dict[str, Any]) -> List[TextContent]:
         """Handle audit trail generation."""
@@ -572,30 +453,34 @@ class OuiComplyMCPServer:
             )]
     
     async def _handle_get_compliance_history(self, arguments: Dict[str, Any]) -> List[TextContent]:
-        """Handle getting compliance history."""
-        user_id = arguments.get("user_id")
-        organization_id = arguments.get("organization_id")
+        """Handle getting compliance history from local cache."""
         document_id = arguments.get("document_id")
         limit = arguments.get("limit", 20)
         
         try:
-            history = await self.memory_service.get_compliance_history(
-                user_id=user_id,
-                organization_id=organization_id,
-                document_id=document_id,
-                limit=limit
-            )
+            # Filter reports by document_id if specified
+            if document_id:
+                filtered_reports = {
+                    k: v for k, v in self._reports_cache.items() 
+                    if v.document_id == document_id
+                }
+            else:
+                filtered_reports = self._reports_cache
             
-            if not history:
-                return [TextContent(type="text", text="No compliance history found.")]
+            # Convert to list and limit results
+            reports = list(filtered_reports.values())[:limit]
             
-            content = f"Compliance History ({len(history)} entries):\n\n"
-            for i, entry in enumerate(history, 1):
-                content += f"{i}. **{entry.title}**\n"
-                content += f"   Category: {entry.category}\n"
-                content += f"   Relevance: {entry.relevance_score:.2f}\n"
-                content += f"   Created: {entry.created_at}\n"
-                content += f"   Tags: {', '.join(entry.tags)}\n\n"
+            if not reports:
+                return [TextContent(type="text", text="No compliance history found in local cache.")]
+            
+            content = f"Compliance History ({len(reports)} entries):\n\n"
+            for i, report in enumerate(reports, 1):
+                content += f"{i}. **{report.document_id}**\n"
+                content += f"   Status: {report.overall_status.value}\n"
+                content += f"   Risk Level: {report.risk_level.value}\n"
+                content += f"   Risk Score: {report.risk_score:.2f}\n"
+                content += f"   Frameworks: {', '.join(report.frameworks_analyzed)}\n"
+                content += f"   Issues: {len(report.issues)}\n\n"
             
             return [TextContent(type="text", text=content)]
         except Exception as e:
@@ -605,36 +490,52 @@ class OuiComplyMCPServer:
             )]
     
     async def _handle_analyze_risk_trends(self, arguments: Dict[str, Any]) -> List[TextContent]:
-        """Handle risk trend analysis."""
-        user_id = arguments.get("user_id")
-        organization_id = arguments.get("organization_id")
+        """Handle risk trend analysis from local cache."""
         days = arguments.get("days", 30)
         
         try:
-            trends = await self.memory_service.get_risk_trends(
-                user_id=user_id,
-                organization_id=organization_id,
-                days=days
-            )
+            # Analyze reports from local cache
+            reports = list(self._reports_cache.values())
+            
+            if not reports:
+                return [TextContent(type="text", text="No compliance data available for trend analysis.")]
+            
+            # Calculate basic metrics
+            total_assessments = len(reports)
+            risk_scores = [r.risk_score for r in reports]
+            avg_risk_score = sum(risk_scores) / len(risk_scores) if risk_scores else 0
+            
+            total_issues = sum(len(r.issues) for r in reports)
+            critical_issues = sum(len([i for i in r.issues if i.severity == "critical"]) for r in reports)
+            
+            # Determine trend direction (simplified)
+            if len(reports) >= 2:
+                recent_avg = sum(risk_scores[-len(reports)//2:]) / (len(reports)//2)
+                older_avg = sum(risk_scores[:len(reports)//2]) / (len(reports)//2)
+                trend_direction = "improving" if recent_avg < older_avg else "worsening" if recent_avg > older_avg else "stable"
+            else:
+                trend_direction = "stable"
+            
+            risk_level = "high" if avg_risk_score > 0.7 else "medium" if avg_risk_score > 0.4 else "low"
             
             content = f"""# Risk Trend Analysis
 
-**Analysis Period:** {days} days
-**Total Assessments:** {trends['total_assessments']}
-**Average Risk Score:** {trends['average_risk_score']:.2f}/1.0
-**Total Issues:** {trends['total_issues']}
-**Critical Issues:** {trends['total_critical_issues']}
-**Trend Direction:** {trends['trend_direction'].title()}
-**Overall Risk Level:** {trends['risk_level'].title()}
+**Analysis Period:** {days} days (based on available data)
+**Total Assessments:** {total_assessments}
+**Average Risk Score:** {avg_risk_score:.2f}/1.0
+**Total Issues:** {total_issues}
+**Critical Issues:** {critical_issues}
+**Trend Direction:** {trend_direction.title()}
+**Overall Risk Level:** {risk_level.title()}
 
 ## Analysis Summary
 
-Based on the compliance assessments over the past {days} days, the overall risk level is **{trends['risk_level'].title()}** with an average risk score of {trends['average_risk_score']:.2f}.
+Based on the compliance assessments in the local cache, the overall risk level is **{risk_level.title()}** with an average risk score of {avg_risk_score:.2f}.
 
 **Key Insights:**
-- {trends['total_assessments']} assessments were analyzed
-- {trends['total_issues']} total compliance issues identified
-- {trends['total_critical_issues']} critical issues requiring immediate attention
+- {total_assessments} assessments were analyzed
+- {total_issues} total compliance issues identified
+- {critical_issues} critical issues requiring immediate attention
 
 **Recommendations:**
 - Monitor compliance trends regularly

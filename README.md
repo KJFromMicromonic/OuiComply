@@ -97,9 +97,50 @@ LOG_LEVEL=INFO
 
 ### Starting the MCP Server
 
+#### Local Development
 ```bash
 python -m src.mcp_server
 ```
+
+#### Web Exposure with ngrok (Recommended for Testing)
+```bash
+# Install ngrok (if not already installed)
+# Download from https://ngrok.com/download
+
+# Run MCP server with ngrok web exposure
+python run_ngrok_mcp.py
+
+# Or use the convenient batch script (Windows)
+start_ngrok_mcp.bat
+
+# Or use PowerShell script (Windows)
+.\start_ngrok_mcp.ps1
+```
+
+#### Testing the Web-Exposed Server
+```bash
+# Test the ngrok-exposed server
+python test_ngrok_mcp.py https://your-ngrok-url.ngrok.io
+
+# Manual testing
+curl https://your-ngrok-url.ngrok.io/health
+curl https://your-ngrok-url.ngrok.io/info
+```
+
+#### ALPIC Integration
+Once the ngrok server is running, use the provided URL in your ALPIC configuration:
+```json
+{
+  "mcp_servers": {
+    "ouicomply": {
+      "url": "https://your-ngrok-url.ngrok.io/mcp",
+      "name": "OuiComply MCP Server"
+    }
+  }
+}
+```
+
+For detailed ngrok setup instructions, see [NGROK_SETUP.md](NGROK_SETUP.md).
 
 ### Available Tools
 
