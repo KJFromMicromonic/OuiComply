@@ -323,22 +323,23 @@ results = await memory_service.search_memories(
 
 ## 🚀 Deployment
 
-### Vercel Deployment
+### ALPIC Deployment (Recommended)
 
-1. **Install Vercel CLI**
-   ```bash
-   npm i -g vercel
+OuiComply MCP Server is optimized for ALPIC deployment. See [ALPIC_DEPLOYMENT.md](ALPIC_DEPLOYMENT.md) for detailed instructions.
+
+**Quick ALPIC Setup:**
+1. **Build Settings**:
+   - Install Command: `uv sync --locked`
+   - Start Command: `python main.py`
+
+2. **Environment Variables**:
+   ```env
+   MISTRAL_KEY=your_mistral_api_key_here
+   ALPIC_ENV=true
+   ENABLE_HEALTH_CHECK=true
    ```
 
-2. **Configure for Vercel**
-   ```bash
-   vercel init
-   ```
-
-3. **Deploy**
-   ```bash
-   vercel --prod
-   ```
+3. **Health Check**: Available at `/health` endpoint
 
 ### Docker Deployment
 
@@ -350,6 +351,18 @@ results = await memory_service.search_memories(
 2. **Run container**
    ```bash
    docker run -p 3000:3000 --env-file .env ouicomply-mcp
+   ```
+
+### Local Development
+
+1. **Start the server**
+   ```bash
+   python main.py
+   ```
+
+2. **Test health check**
+   ```bash
+   curl http://localhost:3000/health
    ```
 
 ## 🤝 Contributing

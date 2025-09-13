@@ -1,24 +1,9 @@
 """
-OuiComply MCP Server - AI Assisted Legal Compliance Checker.
+OuiComply MCP Server Package
 
-This package provides a Model Context Protocol (MCP) server for legal compliance
-analysis using Mistral AI. It includes tools for document analysis, compliance
-checking, and risk assessment.
-
-Main components:
-- mcp_server: Main MCP server implementation
-- config: Configuration management
-- tools: Tool implementations for legal analysis
-- resources: Resource implementations for legal data
+This package contains the OuiComply MCP Server implementation
+for AI-assisted legal compliance checking.
 """
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 __author__ = "OuiComply Team"
-__description__ = "OuiComply MCP Server - AI Assisted Legal Compliance Checker"
-
-from .config import get_config, validate_config
-
-__all__ = [
-    "get_config",
-    "validate_config",
-]
