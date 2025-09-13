@@ -299,7 +299,19 @@ async def create_http_server():
         })
     
     app = web.Application()
+    # MCP endpoints - LeChat looks for "mcp" in the URL
     app.router.add_post('/mcp', mcp_handler)
+    app.router.add_post('/mcp/', mcp_handler)  # Alternative with trailing slash
+    app.router.add_get('/mcp', mcp_handler)    # GET support for health checks
+    app.router.add_get('/mcp/', mcp_handler)   # GET with trailing slash
+    
+    # SSC endpoints - Alternative naming for LeChat compatibility
+    app.router.add_post('/ssc', mcp_handler)
+    app.router.add_post('/ssc/', mcp_handler)
+    app.router.add_get('/ssc', mcp_handler)
+    app.router.add_get('/ssc/', mcp_handler)
+    
+    # Health and info endpoints
     app.router.add_get('/health', health_handler)
     app.router.add_get('/auth', auth_info_handler)
     app.router.add_get('/', health_handler)
@@ -335,10 +347,12 @@ async def main():
     
     print(f"MCP HTTP Server running on port {port}")
     print(f"Health check: http://localhost:{port}/health")
-    print(f"MCP endpoint: http://localhost:{port}/mcp")
+    print(f"MCP endpoints: http://localhost:{port}/mcp (POST/GET)")
+    print(f"SSC endpoints: http://localhost:{port}/ssc (POST/GET) - LeChat compatible")
     print(f"Auth info: http://localhost:{port}/auth")
     print(f"API Token: {mcp_server.api_token}")
-    print(f"Authentication required for MCP endpoints!")
+    print(f"Authentication required for MCP/SSC endpoints!")
+    print(f"LeChat will detect this as MCP server due to 'mcp'/'ssc' in URL")
     
     # Keep the server running
     try:

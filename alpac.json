@@ -44,7 +44,9 @@
   },
   "deployment": {
     "type": "mcp_server",
-    "protocol": "stdio",
+    "protocol": "http",
+    "endpoint": "/mcp",
+    "alternative_endpoint": "/ssc",
     "timeout": 300,
     "memory_limit": "512MB",
     "cpu_limit": "0.5"

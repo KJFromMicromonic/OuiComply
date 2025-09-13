@@ -164,12 +164,39 @@ curl -H "Content-Type: application/json" \
      -d '{"jsonrpc": "2.0", "method": "initialize", "id": 1}'
 ```
 
+### 4. SSC Endpoint (LeChat Compatible)
+```bash
+curl -H "Authorization: Bearer YOUR_API_TOKEN" \
+     -H "Content-Type: application/json" \
+     -X POST https://your-domain.alpic.live/ssc \
+     -d '{"jsonrpc": "2.0", "method": "initialize", "id": 1}'
+```
+
 ### Authentication Info Endpoint
 ```
 GET /auth
 ```
 
 Returns information about authentication requirements and supported methods.
+
+## 🌐 Available Endpoints
+
+### MCP Endpoints (Primary)
+- `POST /mcp` - Main MCP communication endpoint
+- `GET /mcp` - MCP endpoint health check
+- `POST /mcp/` - Alternative with trailing slash
+- `GET /mcp/` - Alternative with trailing slash
+
+### SSC Endpoints (LeChat Compatible)
+- `POST /ssc` - SSC communication endpoint (LeChat compatible)
+- `GET /ssc` - SSC endpoint health check
+- `POST /ssc/` - Alternative with trailing slash
+- `GET /ssc/` - Alternative with trailing slash
+
+### Utility Endpoints
+- `GET /health` - Server health check (no auth required)
+- `GET /auth` - Authentication information
+- `GET /` - Root health check
 
 ## 🔍 Health Check Endpoints
 
