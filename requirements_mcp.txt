@@ -1,0 +1,16 @@
+# MCP Server for Le Chat Integration (Flask)
+flask>=3.1.2
+flask-cors>=6.0.1
+
+# HTTP client for testing
+requests>=2.32.3
+
+# Existing OuiComply dependencies (compatible versions)
+mistralai>=1.9.10
+pydantic>=2.10.3
+pydantic-settings>=2.1.0
+structlog>=23.2.0
+
+# Additional dependencies for MCP protocol
+websockets>=11.0.3
+aiofiles>=23.2.1

@@ -1,0 +1,115 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OuiComply MCP Server Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 3px; }
+        pre { background: #f1f1f1; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>OuiComply MCP Server Test Interface</h1>
+        <p>This is a simple test interface for the OuiComply MCP Server.</p>
+        
+        <div class="test-section">
+            <h3>Server Status</h3>
+            <button onclick="testHealth()">Test Health</button>
+            <div id="health-result" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Le Chat Integration Test</h3>
+            <button onclick="testLeChatIntegration()">Test Le Chat Integration</button>
+            <div id="lechat-result" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Document Analysis Test</h3>
+            <button onclick="testDocumentAnalysis()">Test Document Analysis</button>
+            <div id="analysis-result" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Memory Update Test</h3>
+            <button onclick="testMemoryUpdate()">Test Memory Update</button>
+            <div id="memory-result" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const baseUrl = 'http://localhost:8000';
+        
+        async function testHealth() {
+            try {
+                const response = await fetch(baseUrl + '/health');
+                const data = await response.json();
+                document.getElementById('health-result').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('health-result').innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+            }
+        }
+        
+        async function testLeChatIntegration() {
+            try {
+                const response = await fetch(baseUrl + '/lechat/integration');
+                const data = await response.json();
+                document.getElementById('lechat-result').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('lechat-result').innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+            }
+        }
+        
+        async function testDocumentAnalysis() {
+            try {
+                const response = await fetch(baseUrl + '/lechat/test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        document_content: "This is a test service agreement for compliance analysis.",
+                        document_name: "test_agreement.txt",
+                        team_context: "Legal Team",
+                        compliance_frameworks: ["gdpr", "sox", "ccpa"]
+                    })
+                });
+                const data = await response.json();
+                document.getElementById('analysis-result').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('analysis-result').innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+            }
+        }
+        
+        async function testMemoryUpdate() {
+            try {
+                const response = await fetch(baseUrl + '/memory/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        team_id: "legal_team",
+                        memory_type: "compliance",
+                        updates: {
+                            compliance_rules: ["Test rule 1", "Test rule 2"],
+                            risk_tolerance: "low"
+                        }
+                    })
+                });
+                const data = await response.json();
+                document.getElementById('memory-result').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('memory-result').innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+            }
+        }
+    </script>
+</body>
+</html>
+    

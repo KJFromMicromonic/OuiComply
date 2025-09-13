@@ -93,6 +93,109 @@ MCP_SERVER_VERSION=1.0.0
 LOG_LEVEL=INFO
 ```
 
+## 📁 Contract Dataset Management
+
+### CUAD Contract Download
+
+OuiComply includes a comprehensive script to download and organize the CUAD (Contract Understanding Atticus Dataset) contract collection from Hugging Face. This dataset contains 199+ real-world legal contracts across 22 different categories, providing an excellent foundation for testing and training compliance analysis.
+
+#### Downloading the CUAD Dataset
+
+```bash
+# Download all contracts (199 files across 22 categories)
+python download_cuad_contracts.py
+
+# Resume interrupted download
+python download_cuad_contracts.py --resume
+
+# Customize download parameters
+python download_cuad_contracts.py --max-retries 5 --batch-size 20
+
+# Test the download functionality first
+python test_contract_download.py
+```
+
+#### Contract Categories
+
+The downloaded contracts are organized into the following categories:
+
+- **Affiliate Agreements** - Partnership and affiliate marketing contracts
+- **Co-Branding** - Joint branding and marketing agreements
+- **Development** - Software and product development contracts
+- **Distributor** - Distribution and reseller agreements
+- **Endorsement** - Celebrity and influencer endorsement deals
+- **Franchise** - Franchise and licensing agreements
+- **Hosting** - Web hosting and infrastructure contracts
+- **Intellectual Property** - IP licensing and protection agreements
+- **Joint Venture** - Joint venture and collaboration agreements
+- **License Agreements** - Software and content licensing
+- **Maintenance** - Service and maintenance contracts
+- **Manufacturing** - Production and manufacturing agreements
+- **Marketing** - Marketing and advertising contracts
+- **Non-Compete** - Non-compete and non-solicitation agreements
+- **Outsourcing** - Outsourcing and vendor contracts
+- **Promotion** - Promotional and marketing agreements
+- **Reseller** - Reseller and distribution contracts
+- **Service** - General service agreements
+- **Sponsorship** - Sponsorship and partnership deals
+- **Strategic Alliance** - Strategic partnership agreements
+- **Supply** - Supply chain and procurement contracts
+- **Transportation** - Logistics and transportation agreements
+
+#### Dataset Structure
+
+```
+docs/
+└── cuad_contracts/
+    ├── affiliate_agreements/
+    ├── co_branding/
+    ├── development/
+    ├── distributor/
+    ├── endorsement/
+    ├── franchise/
+    ├── hosting/
+    ├── intellectual_property/
+    ├── joint_venture/
+    ├── license_agreements/
+    ├── maintenance/
+    ├── manufacturing/
+    ├── marketing/
+    ├── non_compete/
+    ├── outsourcing/
+    ├── promotion/
+    ├── reseller/
+    ├── service/
+    ├── sponsorship/
+    ├── strategic_alliance/
+    ├── supply/
+    └── transportation/
+```
+
+#### Features
+
+- **Progress Tracking**: Real-time download progress with detailed logging
+- **Resume Capability**: Interrupted downloads can be resumed from where they left off
+- **Error Handling**: Robust retry mechanisms with exponential backoff
+- **Concurrent Downloads**: Configurable batch processing for optimal performance
+- **Organized Storage**: Automatic categorization by contract type
+- **Comprehensive Logging**: Detailed logs for troubleshooting and monitoring
+
+#### Usage with Compliance Analysis
+
+Once downloaded, these contracts can be used for:
+
+```python
+# Analyze a downloaded contract for compliance
+{
+    "tool": "analyze_document_compliance",
+    "arguments": {
+        "document_content": "docs/cuad_contracts/service/contract_123.pdf",
+        "compliance_frameworks": ["gdpr", "sox"],
+        "analysis_depth": "comprehensive"
+    }
+}
+```
+
 ## 🚀 Usage
 
 ### Starting the MCP Server

@@ -53,11 +53,11 @@ async def test_mcp_pdf_analysis():
         
         # Test tools list
         print("\n🛠️  Testing tools list...")
-        tools_result = await mcp_server._handle_list_tools({})
+        tools_result = await mcp_server.handle_list_tools()
         print("✅ Tools list completed!")
-        print(f"📋 Tools count: {len(tools_result.tools)}")
+        print(f"📋 Tools count: {len(tools_result)}")
         
-        for tool in tools_result.tools:
+        for tool in tools_result:
             print(f"   - {tool.name}: {tool.description}")
         
         print("\n" + "=" * 50)

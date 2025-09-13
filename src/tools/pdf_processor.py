@@ -16,7 +16,7 @@ import httpx
 from mistralai import Mistral
 from pydantic import BaseModel, Field
 
-from ..config import get_config
+from src.config import get_config
 
 logger = logging.getLogger(__name__)
 

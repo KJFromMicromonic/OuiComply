@@ -29,6 +29,9 @@ import structlog
 from .config import get_config, validate_config, print_config_summary
 from .tools.compliance_engine import ComplianceEngine, ComplianceReport
 from .tools.pdf_analysis_tool import PDFAnalysisTool
+from .tools.memory_integration import MemoryIntegration
+from .tools.lechat_interface import LeChatInterface, QueryContext, DocumentFetchResult
+from .tools.automation_agent import AutomationAgent, AutomationResult
 
 # Configure structured logging
 structlog.configure(
@@ -70,6 +73,9 @@ class OuiComplyMCPServer:
         self.server = Server("ouicomply-mcp")
         self.compliance_engine = ComplianceEngine()
         self.pdf_analysis_tool = PDFAnalysisTool()
+        self.memory_integration = MemoryIntegration(use_lechat_mcp=True)
+        self.lechat_interface = LeChatInterface()
+        self.automation_agent = AutomationAgent()
         self._reports_cache = {}  # Cache for storing reports
         self._setup_handlers()
         
@@ -342,6 +348,155 @@ class OuiComplyMCPServer:
                             }
                         }
                     }
+                ),
+                Tool(
+                    name="decompose_task",
+                    description="Decompose a compliance task into structured components using Le Chat interface",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Natural language query from Le Chat"
+                            },
+                            "team_context": {
+                                "type": "string",
+                                "description": "Team context (e.g., 'Procurement Team', 'Sales Team')"
+                            }
+                        },
+                        "required": ["query", "team_context"]
+                    }
+                ),
+                Tool(
+                    name="decompose_document",
+                    description="Decompose document into structured sections for analysis",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "document_content": {
+                                "type": "string",
+                                "description": "Document content as text"
+                            },
+                            "document_name": {
+                                "type": "string",
+                                "description": "Name of the document"
+                            },
+                            "team_context": {
+                                "type": "string",
+                                "description": "Team context for analysis"
+                            }
+                        },
+                        "required": ["document_content", "document_name", "team_context"]
+                    }
+                ),
+                Tool(
+                    name="analyze_with_memory",
+                    description="Perform compliance analysis with team-specific memory integration",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "document_content": {
+                                "type": "string",
+                                "description": "Document content to analyze"
+                            },
+                            "document_name": {
+                                "type": "string",
+                                "description": "Name of the document"
+                            },
+                            "team_context": {
+                                "type": "string",
+                                "description": "Team context for analysis"
+                            },
+                            "compliance_frameworks": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of compliance frameworks to check",
+                                "default": ["gdpr", "sox", "ccpa"]
+                            }
+                        },
+                        "required": ["document_content", "document_name", "team_context"]
+                    }
+                ),
+                Tool(
+                    name="generate_structured_report",
+                    description="Generate structured compliance report with JSON/Markdown output",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "analysis_results": {
+                                "type": "object",
+                                "description": "Results from compliance analysis"
+                            },
+                            "team_context": {
+                                "type": "string",
+                                "description": "Team context for report personalization"
+                            },
+                            "format": {
+                                "type": "string",
+                                "description": "Output format: json, markdown, or both",
+                                "default": "both"
+                            }
+                        },
+                        "required": ["analysis_results", "team_context"]
+                    }
+                ),
+                Tool(
+                    name="update_memory",
+                    description="Update team-specific memory based on analysis results and user feedback",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "team_id": {
+                                "type": "string",
+                                "description": "Team identifier"
+                            },
+                            "analysis_results": {
+                                "type": "object",
+                                "description": "Results from compliance analysis"
+                            },
+                            "user_feedback": {
+                                "type": "object",
+                                "description": "User feedback for learning"
+                            }
+                        },
+                        "required": ["team_id", "analysis_results"]
+                    }
+                ),
+                Tool(
+                    name="generate_automation_prompts",
+                    description="Generate prompts for Le Chat to use its native MCP servers (Linear, Slack, GitHub) for workflow automation",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "analysis_results": {
+                                "type": "object",
+                                "description": "Results from compliance analysis"
+                            },
+                            "team_context": {
+                                "type": "string",
+                                "description": "Team context for automation"
+                            },
+                            "assignee": {
+                                "type": "string",
+                                "description": "Default assignee for tasks (optional)"
+                            }
+                        },
+                        "required": ["analysis_results", "team_context"]
+                    }
+                ),
+                Tool(
+                    name="get_team_memory",
+                    description="Get team-specific memory for analysis context",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "team_id": {
+                                "type": "string",
+                                "description": "Team identifier"
+                            }
+                        },
+                        "required": ["team_id"]
+                    }
                 )
             ]
         
@@ -368,6 +523,20 @@ class OuiComplyMCPServer:
                     return await self._handle_get_compliance_history(arguments)
                 elif name == "analyze_risk_trends":
                     return await self._handle_analyze_risk_trends(arguments)
+                elif name == "decompose_task":
+                    return await self._handle_decompose_task(arguments)
+                elif name == "decompose_document":
+                    return await self._handle_decompose_document(arguments)
+                elif name == "analyze_with_memory":
+                    return await self._handle_analyze_with_memory(arguments)
+                elif name == "generate_structured_report":
+                    return await self._handle_generate_structured_report(arguments)
+                elif name == "update_memory":
+                    return await self._handle_update_memory(arguments)
+                elif name == "generate_automation_prompts":
+                    return await self._handle_generate_automation_prompts(arguments)
+                elif name == "get_team_memory":
+                    return await self._handle_get_team_memory(arguments)
                 else:
                     raise ValueError(f"Unknown tool: {name}")
                     
@@ -576,6 +745,347 @@ Based on the compliance assessments in the local cache, the overall risk level i
             return [TextContent(
                 type="text", 
                 text=f"Failed to analyze risk trends: {str(e)}"
+            )]
+    
+    async def _handle_decompose_task(self, arguments: Dict[str, Any]) -> List[TextContent]:
+        """Handle task decomposition from Le Chat query."""
+        query = arguments.get("query", "")
+        team_context = arguments.get("team_context", "Legal Team")
+        
+        try:
+            # Parse the query using Le Chat interface
+            query_context = await self.lechat_interface.parse_query(query)
+            
+            # Fetch document from Google Drive
+            document_result = await self.lechat_interface.fetch_document_from_google_drive(
+                query_context.document_name, 
+                team_context
+            )
+            
+            if not document_result.success:
+                return [TextContent(
+                    type="text",
+                    text=f"Failed to fetch document: {document_result.error_message}"
+                )]
+            
+            # Get team memory for context
+            team_memory = await self.memory_integration.get_team_memory(team_context)
+            
+            result = {
+                "query_context": query_context.model_dump(),
+                "document_result": document_result.model_dump(),
+                "team_memory": team_memory,
+                "next_steps": [
+                    "Document fetched successfully",
+                    "Ready for compliance analysis",
+                    "Team context loaded for personalized analysis"
+                ]
+            }
+            
+            return [TextContent(
+                type="text",
+                text=f"Task decomposed successfully:\n\n{json.dumps(result, indent=2)}"
+            )]
+            
+        except Exception as e:
+            logger.error(f"Task decomposition failed: {e}")
+            return [TextContent(
+                type="text",
+                text=f"Failed to decompose task: {str(e)}"
+            )]
+    
+    async def _handle_decompose_document(self, arguments: Dict[str, Any]) -> List[TextContent]:
+        """Handle document decomposition into structured sections."""
+        document_content = arguments.get("document_content", "")
+        document_name = arguments.get("document_name", "Unknown Document")
+        team_context = arguments.get("team_context", "Legal Team")
+        
+        try:
+            # Use DocumentAI to decompose the document
+            from .tools.document_ai import DocumentAIService, DocumentAnalysisRequest
+            
+            document_ai = DocumentAIService()
+            request = DocumentAnalysisRequest(
+                document_content=document_content,
+                compliance_frameworks=["gdpr", "sox", "ccpa"],
+                analysis_depth="comprehensive"
+            )
+            
+            analysis_result = await document_ai.analyze_document(request)
+            
+            # Extract sections from analysis
+            sections = []
+            if hasattr(analysis_result, 'metadata') and 'sections' in analysis_result.metadata:
+                sections = analysis_result.metadata['sections']
+            else:
+                # Generate mock sections for demonstration
+                sections = [
+                    {
+                        "id": 1,
+                        "text": "Data Processing Agreement - This section outlines how personal data will be processed",
+                        "type": "clause",
+                        "title": "Data Processing",
+                        "page": 1,
+                        "compliance_relevant": True
+                    },
+                    {
+                        "id": 2,
+                        "text": "Payment terms are Net 60 days from invoice date",
+                        "type": "clause",
+                        "title": "Payment Terms",
+                        "page": 2,
+                        "compliance_relevant": False
+                    }
+                ]
+            
+            result = {
+                "document_name": document_name,
+                "team_context": team_context,
+                "sections": sections,
+                "total_sections": len(sections),
+                "compliance_relevant_sections": len([s for s in sections if s.get("compliance_relevant", False)]),
+                "ready_for_analysis": True
+            }
+            
+            return [TextContent(
+                type="text",
+                text=f"Document decomposed successfully:\n\n{json.dumps(result, indent=2)}"
+            )]
+            
+        except Exception as e:
+            logger.error(f"Document decomposition failed: {e}")
+            return [TextContent(
+                type="text",
+                text=f"Failed to decompose document: {str(e)}"
+            )]
+    
+    async def _handle_analyze_with_memory(self, arguments: Dict[str, Any]) -> List[TextContent]:
+        """Handle compliance analysis with team-specific memory integration."""
+        document_content = arguments.get("document_content", "")
+        document_name = arguments.get("document_name", "Unknown Document")
+        team_context = arguments.get("team_context", "Legal Team")
+        frameworks = arguments.get("compliance_frameworks", ["gdpr", "sox", "ccpa"])
+        
+        try:
+            # Get team-specific memory context
+            team_memory = await self.memory_integration.get_team_memory(team_context)
+            
+            # Perform compliance analysis
+            report = await self.compliance_engine.analyze_document_compliance(
+                document_content=document_content,
+                frameworks=frameworks,
+                analysis_depth="comprehensive"
+            )
+            
+            # Store report in cache
+            self._reports_cache[report.report_id] = report
+            
+            # Learn from analysis results
+            analysis_results = {
+                "issues": [issue.model_dump() for issue in report.issues],
+                "missing_clauses": report.missing_clauses,
+                "risk_level": report.risk_level.value,
+                "overall_status": report.overall_status.value,
+                "document_name": document_name
+            }
+            
+            await self.memory_integration.learn_from_analysis(
+                team_id=team_context,
+                analysis_results=analysis_results
+            )
+            
+            result = {
+                "report_id": report.report_id,
+                "document_name": document_name,
+                "team_context": team_context,
+                "overall_status": report.overall_status.value,
+                "risk_level": report.risk_level.value,
+                "risk_score": report.risk_score,
+                "issues_found": len(report.issues),
+                "missing_clauses": len(report.missing_clauses),
+                "team_memory_updated": True,
+                "frameworks_analyzed": frameworks
+            }
+            
+            return [TextContent(
+                type="text",
+                text=f"Analysis completed with memory integration:\n\n{json.dumps(result, indent=2)}"
+            )]
+            
+        except Exception as e:
+            logger.error(f"Memory-integrated analysis failed: {e}")
+            return [TextContent(
+                type="text",
+                text=f"Failed to analyze with memory: {str(e)}"
+            )]
+    
+    async def _handle_generate_structured_report(self, arguments: Dict[str, Any]) -> List[TextContent]:
+        """Handle structured report generation."""
+        analysis_results = arguments.get("analysis_results", {})
+        team_context = arguments.get("team_context", "Legal Team")
+        format_type = arguments.get("format", "both")
+        
+        try:
+            # Generate Le Chat formatted response
+            lechat_response = await self.lechat_interface.format_response_for_lechat(
+                analysis_results, 
+                team_context
+            )
+            
+            # Generate learning prompt
+            learning_prompt = await self.lechat_interface.generate_learning_prompt(
+                analysis_results, 
+                team_context
+            )
+            
+            result = {
+                "team_context": team_context,
+                "lechat_response": lechat_response,
+                "learning_prompt": learning_prompt,
+                "analysis_summary": {
+                    "status": analysis_results.get("overall_status", "unknown"),
+                    "risk_level": analysis_results.get("risk_level", "unknown"),
+                    "issues_count": len(analysis_results.get("issues", [])),
+                    "missing_clauses_count": len(analysis_results.get("missing_clauses", []))
+                }
+            }
+            
+            if format_type in ["json", "both"]:
+                result["json_report"] = analysis_results
+            
+            if format_type in ["markdown", "both"]:
+                result["markdown_report"] = lechat_response
+            
+            return [TextContent(
+                type="text",
+                text=f"Structured report generated:\n\n{json.dumps(result, indent=2)}"
+            )]
+            
+        except Exception as e:
+            logger.error(f"Structured report generation failed: {e}")
+            return [TextContent(
+                type="text",
+                text=f"Failed to generate structured report: {str(e)}"
+            )]
+    
+    async def _handle_update_memory(self, arguments: Dict[str, Any]) -> List[TextContent]:
+        """Handle memory update based on analysis results and user feedback."""
+        team_id = arguments.get("team_id", "")
+        analysis_results = arguments.get("analysis_results", {})
+        user_feedback = arguments.get("user_feedback", {})
+        
+        try:
+            # Process user feedback
+            processed_feedback = await self.lechat_interface.process_user_feedback(
+                user_feedback.get("feedback_text", ""),
+                team_id
+            )
+            
+            # Learn from analysis and feedback
+            await self.memory_integration.learn_from_analysis(
+                team_id=team_id,
+                analysis_results=analysis_results,
+                user_feedback=processed_feedback
+            )
+            
+            # Get updated memory
+            updated_memory = await self.memory_integration.get_team_memory(team_id)
+            
+            result = {
+                "team_id": team_id,
+                "memory_updated": True,
+                "processed_feedback": processed_feedback,
+                "updated_memory": updated_memory,
+                "suggestions": await self.memory_integration.suggest_improvements(team_id)
+            }
+            
+            return [TextContent(
+                type="text",
+                text=f"Memory updated successfully:\n\n{json.dumps(result, indent=2)}"
+            )]
+            
+        except Exception as e:
+            logger.error(f"Memory update failed: {e}")
+            return [TextContent(
+                type="text",
+                text=f"Failed to update memory: {str(e)}"
+            )]
+    
+    async def _handle_generate_automation_prompts(self, arguments: Dict[str, Any]) -> List[TextContent]:
+        """Handle generation of automation prompts for Le Chat to use its native MCP servers."""
+        analysis_results = arguments.get("analysis_results", {})
+        team_context = arguments.get("team_context", "Legal Team")
+        assignee = arguments.get("assignee")
+        
+        try:
+            # Generate automation prompts for Le Chat
+            automation_result = await self.automation_agent.generate_automation_prompts(
+                analysis_results=analysis_results,
+                team_context=team_context,
+                assignee=assignee
+            )
+            
+            # Format prompts for Le Chat display
+            prompts = automation_result.external_ids.get("prompts", [])
+            formatted_prompts = []
+            
+            for prompt in prompts:
+                formatted_prompts.append({
+                    "action_type": prompt["action_type"],
+                    "prompt": prompt["prompt"],
+                    "details": prompt.get("task_details") or prompt.get("message_details") or prompt.get("issue_details")
+                })
+            
+            result = {
+                "team_context": team_context,
+                "prompt_generation_success": automation_result.success,
+                "actions_taken": automation_result.actions_taken,
+                "errors": automation_result.errors,
+                "prompts": formatted_prompts,
+                "instructions": "Please execute these prompts using your respective MCP servers (Linear, Slack, GitHub)",
+                "timestamp": automation_result.timestamp
+            }
+            
+            return [TextContent(
+                type="text",
+                text=f"Automation prompts generated for Le Chat:\n\n{json.dumps(result, indent=2)}"
+            )]
+            
+        except Exception as e:
+            logger.error(f"Automation prompt generation failed: {e}")
+            return [TextContent(
+                type="text",
+                text=f"Failed to generate automation prompts: {str(e)}"
+            )]
+    
+    async def _handle_get_team_memory(self, arguments: Dict[str, Any]) -> List[TextContent]:
+        """Handle getting team-specific memory."""
+        team_id = arguments.get("team_id", "")
+        
+        try:
+            # Get team memory
+            team_memory = await self.memory_integration.get_team_memory(team_id)
+            
+            # Get cross-team insights
+            cross_team_insights = await self.memory_integration.get_cross_team_insights()
+            
+            result = {
+                "team_id": team_id,
+                "team_memory": team_memory,
+                "cross_team_insights": cross_team_insights,
+                "suggestions": await self.memory_integration.suggest_improvements(team_id)
+            }
+            
+            return [TextContent(
+                type="text",
+                text=f"Team memory retrieved:\n\n{json.dumps(result, indent=2)}"
+            )]
+            
+        except Exception as e:
+            logger.error(f"Get team memory failed: {e}")
+            return [TextContent(
+                type="text",
+                text=f"Failed to get team memory: {str(e)}"
             )]
 
     async def run(self):

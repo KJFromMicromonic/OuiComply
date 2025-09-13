@@ -1,0 +1,28 @@
+{
+  "name": "ouicomply-mcp-server",
+  "description": "OuiComply MCP Server for Le Chat Integration",
+  "version": "1.0.0",
+  "runtime": "python3.11",
+    "entrypoint": "mcp_server_flask.py",
+  "port": 8000,
+  "environment": {
+    "PYTHONPATH": "/app",
+    "MISTRAL_API_KEY": "",
+    "LOG_LEVEL": "INFO"
+  },
+  "dependencies": "requirements_mcp.txt",
+  "health_check": "/health",
+  "endpoints": {
+    "mcp": "/mcp",
+    "sse": "/mcp/sse",
+    "health": "/health",
+    "lechat": "/lechat/integration"
+  },
+  "capabilities": {
+    "mcp_protocol": true,
+    "server_sent_events": true,
+    "tool_calling": true,
+    "resource_management": true,
+    "prompt_templates": true
+  }
+}

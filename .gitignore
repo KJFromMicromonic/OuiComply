@@ -248,3 +248,5 @@ temp/
 # MCP-specific
 mcp_server.log
 server.log
+docs/
+.env 
