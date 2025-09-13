@@ -8,7 +8,7 @@ This guide provides step-by-step instructions for deploying the OuiComply MCP Se
 
 1. **ALPIC Account**: Ensure you have an active ALPIC account
 2. **Mistral API Key**: Get your API key from [Mistral AI](https://console.mistral.ai/)
-3. **Python 3.8+**: ALPIC supports Python 3.8 and higher
+3. **Python 3.10+**: ALPIC supports Python 3.10 and higher
 
 ### Environment Variables
 
