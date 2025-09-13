@@ -15,7 +15,7 @@ uv sync --locked
 
 ### Start Command
 ```bash
-python mcp_server_main.py
+python mcp_http_server.py
 ```
 
 ## 🔑 Required Environment Variables
