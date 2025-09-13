@@ -115,9 +115,7 @@ class LeChatMemoryService:
             httpx.HTTPError: If API request fails
             ValueError: If required parameters are missing
         """
-        logger.info("Storing compliance assessment in LeChat memory",
-                   report_id=report.report_id,
-                   user_id=user_id)
+        logger.info(f"Storing compliance assessment in LeChat memory - report_id: {report.report_id}, user_id: {user_id}")
         
         try:
             # Create memory entry from compliance report
@@ -135,13 +133,12 @@ class LeChatMemoryService:
             response.raise_for_status()
             
             memory_id = response.json().get("memory_id")
-            logger.info("Compliance assessment stored successfully",
-                       memory_id=memory_id)
+            logger.info(f"Compliance assessment stored successfully - memory_id: {memory_id}")
             
             return memory_id
             
         except Exception as e:
-            logger.error("Failed to store compliance assessment", error=str(e))
+            logger.error(f"Failed to store compliance assessment: {str(e)}")
             raise
     
     def _create_memory_from_report(
@@ -286,10 +283,7 @@ Frameworks Analyzed: {', '.join(report.frameworks_analyzed)}
         Raises:
             httpx.HTTPError: If API request fails
         """
-        logger.info("Searching LeChat memories",
-                   query=query,
-                   category=category,
-                   user_id=user_id)
+        logger.info(f"Searching LeChat memories - query: {query}, category: {category}, user_id: {user_id}")
         
         try:
             # Prepare search parameters
@@ -328,13 +322,12 @@ Frameworks Analyzed: {', '.join(report.frameworks_analyzed)}
                 )
                 results.append(result)
             
-            logger.info("Memory search completed",
-                       results_count=len(results))
+            logger.info(f"Memory search completed - results_count: {len(results)}")
             
             return results
             
         except Exception as e:
-            logger.error("Memory search failed", error=str(e))
+            logger.error(f"Memory search failed: {str(e)}")
             raise
     
     async def get_memory(self, memory_id: str) -> Optional[MemoryEntry]:
@@ -362,7 +355,7 @@ Frameworks Analyzed: {', '.join(report.frameworks_analyzed)}
             return MemoryEntry(**data)
             
         except Exception as e:
-            logger.error("Failed to retrieve memory", memory_id=memory_id, error=str(e))
+            logger.error(f"Failed to retrieve memory {memory_id}: {str(e)}")
             raise
     
     async def update_memory(
@@ -396,7 +389,7 @@ Frameworks Analyzed: {', '.join(report.frameworks_analyzed)}
             return True
             
         except Exception as e:
-            logger.error("Failed to update memory", memory_id=memory_id, error=str(e))
+            logger.error(f"Failed to update memory {memory_id}: {str(e)}")
             raise
     
     async def delete_memory(self, memory_id: str) -> bool:
@@ -422,7 +415,7 @@ Frameworks Analyzed: {', '.join(report.frameworks_analyzed)}
             return True
             
         except Exception as e:
-            logger.error("Failed to delete memory", memory_id=memory_id, error=str(e))
+            logger.error(f"Failed to delete memory {memory_id}: {str(e)}")
             raise
     
     async def get_compliance_history(

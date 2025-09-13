@@ -138,9 +138,7 @@ class ComplianceEngine:
             ValueError: If analysis parameters are invalid
             Exception: If analysis fails
         """
-        logger.info("Starting compliance analysis", 
-                   frameworks=frameworks,
-                   depth=analysis_depth)
+        logger.info(f"Starting compliance analysis - frameworks: {frameworks}, depth: {analysis_depth}")
         
         try:
             # Set default frameworks if none provided
@@ -161,15 +159,12 @@ class ComplianceEngine:
             # Generate compliance report
             report = await self._generate_compliance_report(analysis_result)
             
-            logger.info("Compliance analysis completed",
-                       report_id=report.report_id,
-                       status=report.overall_status,
-                       risk_level=report.risk_level)
+            logger.info(f"Compliance analysis completed - report_id: {report.report_id}, status: {report.overall_status}, risk_level: {report.risk_level}")
             
             return report
             
         except Exception as e:
-            logger.error("Compliance analysis failed", error=str(e))
+            logger.error(f"Compliance analysis failed: {str(e)}")
             raise
     
     async def _generate_compliance_report(
@@ -192,7 +187,7 @@ class ComplianceEngine:
         risk_level = self._determine_risk_level(analysis_result.risk_score)
         
         # Generate mitigation actions
-        mitigation_actions = self._generate_mitigation_actions(analysis_result.issues)
+        mitigation_actions = self._generate_mitigation_actions(analysis_result.compliance_issues)
         
         # Generate executive summary
         summary = self._generate_executive_summary(

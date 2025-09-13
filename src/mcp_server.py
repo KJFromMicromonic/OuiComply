@@ -111,7 +111,7 @@ class OuiComplyMCPServer:
             """
             Read a specific resource.
             """
-            logger.info("Reading resource", uri=uri)
+            logger.info(f"Reading resource: {uri}")
             
             if uri == "resource://compliance-frameworks":
                 return json.dumps({
@@ -379,7 +379,7 @@ class OuiComplyMCPServer:
             This implements the actual legal compliance analysis logic using
             Mistral DocumentAI and the compliance engine.
             """
-            logger.info("Tool called", tool_name=name, arguments=arguments)
+            logger.info(f"Tool called: {name} with arguments: {arguments}")
             
             try:
                 if name == "analyze_document_compliance":
@@ -400,7 +400,7 @@ class OuiComplyMCPServer:
                     raise ValueError(f"Unknown tool: {name}")
                     
             except Exception as e:
-                logger.error("Tool execution failed", tool_name=name, error=str(e))
+                logger.error(f"Tool execution failed - tool: {name}, error: {str(e)}")
                 return [TextContent(
                     type="text", 
                     text=f"Error executing tool '{name}': {str(e)}"
@@ -669,6 +669,7 @@ Based on the compliance assessments over the past {days} days, the overall risk 
                 InitializationOptions(
                     server_name=self.config.server_name,
                     server_version=self.config.server_version,
+                    capabilities={}
                 )
             )
 
