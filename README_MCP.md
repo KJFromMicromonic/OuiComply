@@ -1,21 +1,35 @@
 # OuiComply MCP Server
 
-A Model Context Protocol (MCP) server for AI-assisted legal compliance checking using Mistral AI.
+A Model Context Protocol (MCP) server for AI-assisted legal compliance checking using Mistral AI and the CUAD dataset.
 
 ## Overview
 
-This MCP server provides tools and resources for legal document analysis, compliance checking, and risk assessment. It's designed to integrate with MCP-compatible clients like Claude Desktop, enabling AI assistants to perform legal compliance tasks.
+This MCP server provides tools and resources for legal document analysis, compliance checking, and risk assessment. It's designed to integrate with MCP-compatible clients like Claude Desktop, enabling AI assistants to perform legal compliance tasks using real-world legal contract patterns from the CUAD (Contract Understanding Atticus Dataset).
+
+## 🆕 CUAD Dataset Integration
+
+**NEW**: This server now integrates with the [CUAD (Contract Understanding Atticus Dataset)](https://huggingface.co/datasets/theatticusproject/cuad) from Hugging Face, providing:
+
+- **500+ Real Legal Contracts**: Access to actual legal agreements with expert annotations
+- **37 Legal Clause Categories**: Standardized taxonomy for contract analysis
+- **Expert Annotations**: Professional legal analysis for accurate pattern matching
+- **Enhanced Analysis**: Real-world contract patterns improve accuracy and reliability
 
 ## Features
 
-### 🛠️ Tools
-- **Document Analysis**: Analyze legal documents for compliance issues
-- **Clause Checking**: Verify presence of required clauses in documents
-- **Risk Assessment**: Perform risk analysis on legal documents
+### 🛠️ Enhanced Tools (CUAD-Powered)
+- **Document Analysis**: Analyze legal documents using CUAD dataset patterns
+- **CUAD Contract Analysis**: Comprehensive contract analysis with 37 clause categories
+- **Clause Checking**: Verify presence of required clauses using CUAD patterns
+- **Risk Assessment**: Perform risk analysis based on real contract data
+- **CUAD Search**: Search 500+ contracts for specific clause examples
+- **Template Generation**: Generate contract templates based on CUAD patterns
 
-### 📚 Resources
-- **Legal Templates**: Collection of legal document templates
+### 📚 Enhanced Resources
+- **Legal Templates**: CUAD-enhanced document templates
 - **Compliance Frameworks**: GDPR, CCPA, SOX, and other regulatory frameworks
+- **CUAD Dataset**: Access to 500+ legal contracts and clause categories
+- **Clause Categories**: 37 standardized legal clause types from CUAD
 - **Regulatory Database**: Legal requirements and standards
 
 ## Quick Start

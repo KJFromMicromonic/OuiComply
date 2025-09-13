@@ -9,6 +9,12 @@ httpx>=0.25.0
 # Mistral AI Dependencies
 mistralai>=0.4.0
 
+# CUAD Dataset Dependencies
+datasets>=4.0.0
+transformers>=4.56.0
+pandas>=2.3.0
+pyarrow>=21.0.0
+
 # Development Dependencies
 pytest>=7.0.0
 pytest-asyncio>=0.21.0
