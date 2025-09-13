@@ -6,6 +6,7 @@ This is an empty MCP server ready to be extended with legal compliance tools.
 import asyncio
 import logging
 from typing import Any, Dict, List, Optional, Sequence
+from datetime import datetime
 from mcp.server import Server
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
@@ -22,6 +23,7 @@ import json
 
 from .config import get_config, validate_config, print_config_summary
 from .legal_datasets import initialize_cuad_dataset, get_cuad_manager
+from .compliance import GDPRAnalyzer, SOXAnalyzer, LicensingAnalyzer
 
 # Configure structured logging
 structlog.configure(
@@ -60,6 +62,12 @@ class OuiComplyMCPServer:
         self.config = get_config()
         self.server = Server("ouicomply-mcp")
         self.cuad_manager = get_cuad_manager()
+        
+        # Initialize compliance analyzers
+        self.gdpr_analyzer = GDPRAnalyzer()
+        self.sox_analyzer = SOXAnalyzer()
+        self.licensing_analyzer = LicensingAnalyzer()
+        
         self._setup_handlers()
         
     def _setup_handlers(self):
@@ -138,10 +146,27 @@ class OuiComplyMCPServer:
                 # Return compliance frameworks
                 framework_data = {
                     "frameworks": {
-                        "gdpr": "General Data Protection Regulation framework",
-                        "ccpa": "California Consumer Privacy Act framework", 
-                        "sox": "Sarbanes-Oxley Act compliance framework"
-                    }
+                        "gdpr": {
+                            "name": "General Data Protection Regulation",
+                            "description": "EU data protection and privacy regulation",
+                            "key_areas": ["data subject rights", "legal basis", "consent", "international transfers"],
+                            "analyzer": "GDPRAnalyzer"
+                        },
+                        "sox": {
+                            "name": "Sarbanes-Oxley Act",
+                            "description": "US financial reporting and corporate governance regulation",
+                            "key_areas": ["internal controls", "financial reporting", "audit requirements", "whistleblower protection"],
+                            "analyzer": "SOXAnalyzer"
+                        },
+                        "licensing": {
+                            "name": "Licensing Agreements",
+                            "description": "Intellectual property and software licensing compliance",
+                            "key_areas": ["license grants", "usage restrictions", "IP ownership", "royalty terms"],
+                            "analyzer": "LicensingAnalyzer"
+                        }
+                    },
+                    "supported_frameworks": ["gdpr", "sox", "licensing"],
+                    "total_frameworks": 3
                 }
                 return json.dumps(framework_data, indent=2)
                 
@@ -195,8 +220,8 @@ class OuiComplyMCPServer:
                             },
                             "compliance_framework": {
                                 "type": "string",
-                                "description": "The compliance framework to check against (e.g., 'gdpr', 'ccpa')",
-                                "enum": ["gdpr", "ccpa", "sox"]
+                                "description": "The compliance framework to check against (e.g., 'gdpr', 'sox', 'licensing')",
+                                "enum": ["gdpr", "sox", "licensing"]
                             }
                         },
                         "required": ["document_text", "compliance_framework"]
@@ -305,19 +330,30 @@ class OuiComplyMCPServer:
                 document_text = arguments.get("document_text", "")
                 framework = arguments.get("compliance_framework", "")
                 
-                # Enhanced analysis using CUAD dataset patterns
-                cuad_analysis = self.cuad_manager.analyze_contract_coverage(document_text)
+                # Enhanced analysis using CUAD dataset patterns with framework support
+                cuad_analysis = self.cuad_manager.analyze_contract_coverage(document_text, framework)
+                
+                # Get framework-specific analysis
+                framework_analysis = None
+                if framework == "gdpr":
+                    framework_analysis = self.gdpr_analyzer.analyze_compliance(document_text)
+                elif framework == "sox":
+                    framework_analysis = self.sox_analyzer.analyze_compliance(document_text)
+                elif framework == "licensing":
+                    framework_analysis = self.licensing_analyzer.analyze_compliance(document_text)
                 
                 result = f"""
-                📄 Document Analysis Results (CUAD-Enhanced)
+                📄 Multi-Framework Document Analysis Results
                 
                 Framework: {framework.upper()}
                 Document Length: {len(document_text)} characters
+                Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                 
                 🔍 CUAD Contract Analysis:
                 • Coverage Score: {cuad_analysis['coverage_score']:.2%}
                 • Detected Clauses: {len(cuad_analysis['detected_clauses'])}
                 • Potential Clauses: {len(cuad_analysis['potential_clauses'])}
+                • Framework: {cuad_analysis['framework']}
                 
                 ✅ Detected Clause Types:
                 """
@@ -330,17 +366,57 @@ class OuiComplyMCPServer:
                     for clause in cuad_analysis['potential_clauses']:
                         result += f"\n  • {clause['clause_type']} (confidence: {clause['confidence']:.1%})"
                 
+                # Add framework-specific analysis if available
+                if framework_analysis:
+                    result += f"""
+                
+                🎯 {framework.upper()} Compliance Analysis:
+                • Compliance Score: {framework_analysis['compliance_score']:.1%}
+                • Risk Level: {framework_analysis['risk_level']}
+                """
+                    
+                    if framework == "gdpr":
+                        gdpr_data = framework_analysis
+                        result += f"""
+                • Legal Basis Found: {gdpr_data['legal_basis_analysis']['has_explicit_basis']}
+                • Data Subject Rights Coverage: {gdpr_data['data_subject_rights']['rights_coverage']:.1%}
+                • Compliance Elements: {gdpr_data['compliance_elements']['elements_coverage']:.1%}
+                """
+                    elif framework == "sox":
+                        sox_data = framework_analysis
+                        result += f"""
+                • Section 302 Coverage: {sox_data['section_302_analysis']['coverage']:.1%}
+                • Section 404 Coverage: {sox_data['section_404_analysis']['coverage']:.1%}
+                • Internal Controls: {sox_data['internal_controls_analysis']['controls_coverage']:.1%}
+                """
+                    elif framework == "licensing":
+                        licensing_data = framework_analysis
+                        result += f"""
+                • License Grant Coverage: {licensing_data['license_grant_analysis']['coverage']:.1%}
+                • IP Analysis Coverage: {licensing_data['ip_analysis']['coverage']:.1%}
+                • Usage Rights Coverage: {licensing_data['usage_analysis']['coverage']:.1%}
+                """
+                
                 result += f"""
                 
                 📊 Analysis Summary:
                 • Total CUAD Categories: {cuad_analysis['total_cuad_categories']}
                 • Analysis Method: {cuad_analysis['analysis_method']}
-                • Compliance Framework: {framework}
+                • Framework-Specific Analysis: {'✅ Available' if framework_analysis else '❌ Not Available'}
                 
                 💡 Recommendations:
+                """
+                
+                # Add framework-specific recommendations
+                if framework_analysis and 'recommendations' in framework_analysis:
+                    for i, rec in enumerate(framework_analysis['recommendations'][:5], 1):
+                        result += f"\n{i}. {rec}"
+                else:
+                    result += f"""
                 1. Review detected clauses for {framework.upper()} compliance
                 2. Consider adding missing essential clauses
                 3. Validate clause language against regulatory requirements
+                4. Conduct framework-specific compliance review
                 """
                 
                 return [TextContent(type="text", text=result)]

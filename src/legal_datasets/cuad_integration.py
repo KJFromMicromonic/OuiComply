@@ -234,20 +234,62 @@ class CUADDatasetManager:
         
         return examples
     
-    def analyze_contract_coverage(self, contract_text: str) -> Dict[str, Any]:
+    def analyze_contract_coverage(self, contract_text: str, framework: str = "general") -> Dict[str, Any]:
         """
         Analyze a contract to identify which CUAD clause types it might contain.
+        Enhanced to support multiple compliance frameworks.
         
         Args:
             contract_text: Text of the contract to analyze
+            framework: Compliance framework to focus on ("general", "gdpr", "sox", "licensing")
             
         Returns:
             Analysis results with potential clause matches
         """
         contract_lower = contract_text.lower()
         
-        # Simple keyword-based analysis (can be enhanced with ML models)
-        clause_indicators = {
+        # Enhanced clause indicators with framework-specific patterns
+        clause_indicators = self._get_framework_clause_indicators(framework)
+        
+        detected_clauses = []
+        potential_clauses = []
+        
+        for clause_type, keywords in clause_indicators.items():
+            matches = sum(1 for keyword in keywords if keyword in contract_lower)
+            if matches > 0:
+                confidence = min(matches / len(keywords), 1.0)
+                clause_info = {
+                    "clause_type": clause_type,
+                    "confidence": confidence,
+                    "keyword_matches": matches,
+                    "total_keywords": len(keywords),
+                    "framework": framework
+                }
+                
+                if confidence >= 0.3:
+                    detected_clauses.append(clause_info)
+                else:
+                    potential_clauses.append(clause_info)
+        
+        # Framework-specific analysis
+        framework_analysis = self._analyze_framework_specific(contract_lower, framework)
+        
+        return {
+            "contract_length": len(contract_text),
+            "detected_clauses": detected_clauses,
+            "potential_clauses": potential_clauses,
+            "coverage_score": len(detected_clauses) / len(clause_indicators),
+            "total_cuad_categories": len(self.clause_categories),
+            "framework": framework,
+            "framework_analysis": framework_analysis,
+            "analysis_method": "enhanced_keyword_based"
+        }
+    
+    def _get_framework_clause_indicators(self, framework: str) -> Dict[str, List[str]]:
+        """Get clause indicators based on compliance framework."""
+        
+        # Base CUAD clause indicators
+        base_indicators = {
             "Agreement Date": ["agreement date", "effective date", "date of agreement"],
             "Anti-Assignment": ["anti-assignment", "no assignment", "cannot assign"],
             "Audit Rights": ["audit", "inspection", "examine records"],
@@ -265,32 +307,146 @@ class CUADDatasetManager:
             "Warranty Duration": ["warranty", "guarantee", "warranted"]
         }
         
-        detected_clauses = []
-        potential_clauses = []
+        if framework == "gdpr":
+            # Add GDPR-specific indicators
+            gdpr_indicators = {
+                "Data Processing Agreement": ["data processing", "personal data", "gdpr"],
+                "Data Subject Rights": ["data subject", "access", "rectification", "erasure"],
+                "Legal Basis": ["legal basis", "consent", "legitimate interest"],
+                "Data Controller": ["data controller", "controller", "responsible party"],
+                "Data Processor": ["data processor", "processor", "third party"],
+                "International Transfers": ["international transfer", "third country", "adequacy"],
+                "Breach Notification": ["data breach", "notification", "supervisory authority"],
+                "Privacy by Design": ["privacy by design", "data protection by design"],
+                "Retention Period": ["retention", "storage period", "delete data"],
+                "DPO Contact": ["dpo", "data protection officer", "privacy officer"]
+            }
+            base_indicators.update(gdpr_indicators)
+            
+        elif framework == "sox":
+            # Add SOX-specific indicators
+            sox_indicators = {
+                "Internal Controls": ["internal controls", "icfr", "financial reporting"],
+                "Management Certification": ["management certification", "ceo", "cfo"],
+                "Audit Committee": ["audit committee", "independent", "financial expert"],
+                "Financial Disclosure": ["financial disclosure", "material information"],
+                "Whistleblower Protection": ["whistleblower", "anonymous reporting", "retaliation"],
+                "Documentation Requirements": ["documentation", "policies", "procedures"],
+                "Risk Assessment": ["risk assessment", "fraud risk", "material weakness"],
+                "Monitoring Controls": ["monitoring", "testing", "effectiveness"],
+                "COSO Framework": ["coso", "control framework", "control environment"],
+                "Auditor Independence": ["auditor independence", "external auditor", "attestation"]
+            }
+            base_indicators.update(sox_indicators)
+            
+        elif framework == "licensing":
+            # Add licensing-specific indicators
+            licensing_indicators = {
+                "License Scope": ["scope", "field of use", "territory", "application"],
+                "Exclusivity": ["exclusive", "non-exclusive", "sole license"],
+                "Royalty Terms": ["royalty", "royalties", "revenue share", "percentage"],
+                "Usage Restrictions": ["permitted use", "prohibited", "restrictions"],
+                "Modification Rights": ["modify", "derivative works", "improvements"],
+                "Distribution Rights": ["distribute", "sublicense", "transfer"],
+                "Termination Conditions": ["termination", "breach", "cure period"],
+                "IP Ownership": ["ownership", "title", "intellectual property"],
+                "Patent Rights": ["patent", "patent rights", "claims", "invention"],
+                "Copyright License": ["copyright", "reproduction", "public performance"],
+                "Trade Secret": ["trade secret", "confidential", "proprietary"],
+                "Open Source": ["open source", "gpl", "mit", "apache", "creative commons"]
+            }
+            base_indicators.update(licensing_indicators)
         
-        for clause_type, keywords in clause_indicators.items():
-            matches = sum(1 for keyword in keywords if keyword in contract_lower)
-            if matches > 0:
-                confidence = min(matches / len(keywords), 1.0)
-                clause_info = {
-                    "clause_type": clause_type,
-                    "confidence": confidence,
-                    "keyword_matches": matches,
-                    "total_keywords": len(keywords)
-                }
-                
-                if confidence >= 0.3:
-                    detected_clauses.append(clause_info)
-                else:
-                    potential_clauses.append(clause_info)
+        return base_indicators
+    
+    def _analyze_framework_specific(self, contract_lower: str, framework: str) -> Dict[str, Any]:
+        """Perform framework-specific analysis."""
+        
+        if framework == "gdpr":
+            return self._analyze_gdpr_specific(contract_lower)
+        elif framework == "sox":
+            return self._analyze_sox_specific(contract_lower)
+        elif framework == "licensing":
+            return self._analyze_licensing_specific(contract_lower)
+        else:
+            return {"framework": "general", "specific_analysis": "none"}
+    
+    def _analyze_gdpr_specific(self, contract_lower: str) -> Dict[str, Any]:
+        """GDPR-specific analysis."""
+        gdpr_elements = {
+            "has_legal_basis": any(term in contract_lower for term in 
+                ["consent", "legitimate interest", "contract", "legal obligation"]),
+            "mentions_data_subjects": any(term in contract_lower for term in 
+                ["data subject", "individual", "person"]),
+            "has_retention_policy": any(term in contract_lower for term in 
+                ["retention", "delete", "storage period"]),
+            "mentions_transfers": any(term in contract_lower for term in 
+                ["transfer", "third country", "international"]),
+            "has_security_measures": any(term in contract_lower for term in 
+                ["security", "encryption", "protect", "safeguard"]),
+            "mentions_rights": any(term in contract_lower for term in 
+                ["access", "rectification", "erasure", "portability"])
+        }
+        
+        compliance_score = sum(gdpr_elements.values()) / len(gdpr_elements)
         
         return {
-            "contract_length": len(contract_text),
-            "detected_clauses": detected_clauses,
-            "potential_clauses": potential_clauses,
-            "coverage_score": len(detected_clauses) / len(self.clause_categories),
-            "total_cuad_categories": len(self.clause_categories),
-            "analysis_method": "keyword_based"
+            "framework": "gdpr",
+            "elements": gdpr_elements,
+            "compliance_score": compliance_score,
+            "risk_level": "LOW" if compliance_score > 0.7 else "MEDIUM" if compliance_score > 0.4 else "HIGH"
+        }
+    
+    def _analyze_sox_specific(self, contract_lower: str) -> Dict[str, Any]:
+        """SOX-specific analysis."""
+        sox_elements = {
+            "has_internal_controls": any(term in contract_lower for term in 
+                ["internal controls", "icfr", "control framework"]),
+            "mentions_certification": any(term in contract_lower for term in 
+                ["certification", "ceo", "cfo", "management"]),
+            "has_audit_provisions": any(term in contract_lower for term in 
+                ["audit", "auditor", "independent", "attestation"]),
+            "mentions_documentation": any(term in contract_lower for term in 
+                ["documentation", "policies", "procedures"]),
+            "has_whistleblower": any(term in contract_lower for term in 
+                ["whistleblower", "reporting", "anonymous"]),
+            "mentions_monitoring": any(term in contract_lower for term in 
+                ["monitoring", "testing", "effectiveness"])
+        }
+        
+        compliance_score = sum(sox_elements.values()) / len(sox_elements)
+        
+        return {
+            "framework": "sox",
+            "elements": sox_elements,
+            "compliance_score": compliance_score,
+            "risk_level": "LOW" if compliance_score > 0.6 else "MEDIUM" if compliance_score > 0.3 else "HIGH"
+        }
+    
+    def _analyze_licensing_specific(self, contract_lower: str) -> Dict[str, Any]:
+        """Licensing-specific analysis."""
+        licensing_elements = {
+            "has_grant_clause": any(term in contract_lower for term in 
+                ["grant", "license", "hereby grants"]),
+            "defines_scope": any(term in contract_lower for term in 
+                ["scope", "field of use", "territory"]),
+            "mentions_exclusivity": any(term in contract_lower for term in 
+                ["exclusive", "non-exclusive", "sole"]),
+            "has_usage_terms": any(term in contract_lower for term in 
+                ["permitted", "prohibited", "restrictions"]),
+            "mentions_royalties": any(term in contract_lower for term in 
+                ["royalty", "payment", "fee", "compensation"]),
+            "has_termination": any(term in contract_lower for term in 
+                ["termination", "breach", "expire"])
+        }
+        
+        compliance_score = sum(licensing_elements.values()) / len(licensing_elements)
+        
+        return {
+            "framework": "licensing",
+            "elements": licensing_elements,
+            "compliance_score": compliance_score,
+            "risk_level": "LOW" if compliance_score > 0.7 else "MEDIUM" if compliance_score > 0.4 else "HIGH"
         }
     
     def get_contract_template(self, contract_type: str = "general") -> Dict[str, Any]:
