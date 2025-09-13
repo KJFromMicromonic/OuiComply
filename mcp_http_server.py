@@ -270,6 +270,18 @@ async def create_http_server():
     
     async def mcp_handler(request):
         """Handle MCP requests."""
+        # For GET requests, return server info instead of processing MCP protocol
+        if request.method == 'GET':
+            return web.json_response({
+                "server": "OuiComply MCP Server",
+                "version": mcp_server.config.server_version,
+                "endpoint": "/mcp",
+                "methods": ["POST"],
+                "protocol": "MCP over HTTP",
+                "authentication": "required"
+            })
+        
+        # For POST requests, handle MCP protocol
         response_data = await mcp_server.handle_mcp_request(request)
         return web.json_response(response_data)
     
@@ -298,6 +310,24 @@ async def create_http_server():
             "version": mcp_server.config.server_version
         })
     
+    async def ssc_handler(request):
+        """Handle SSC requests (LeChat compatible)."""
+        # For GET requests, return server info
+        if request.method == 'GET':
+            return web.json_response({
+                "server": "OuiComply MCP Server (SSC Compatible)",
+                "version": mcp_server.config.server_version,
+                "endpoint": "/ssc",
+                "methods": ["POST"],
+                "protocol": "MCP over HTTP (SSC)",
+                "authentication": "required",
+                "lechat_compatible": True
+            })
+        
+        # For POST requests, handle MCP protocol (same as /mcp)
+        response_data = await mcp_server.handle_mcp_request(request)
+        return web.json_response(response_data)
+    
     app = web.Application()
     # MCP endpoints - LeChat looks for "mcp" in the URL
     app.router.add_post('/mcp', mcp_handler)
@@ -306,10 +336,10 @@ async def create_http_server():
     app.router.add_get('/mcp/', mcp_handler)   # GET with trailing slash
     
     # SSC endpoints - Alternative naming for LeChat compatibility
-    app.router.add_post('/ssc', mcp_handler)
-    app.router.add_post('/ssc/', mcp_handler)
-    app.router.add_get('/ssc', mcp_handler)
-    app.router.add_get('/ssc/', mcp_handler)
+    app.router.add_post('/ssc', ssc_handler)
+    app.router.add_post('/ssc/', ssc_handler)
+    app.router.add_get('/ssc', ssc_handler)
+    app.router.add_get('/ssc/', ssc_handler)
     
     # Health and info endpoints
     app.router.add_get('/health', health_handler)
@@ -345,12 +375,15 @@ async def main():
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
     
+    # Get the MCP server instance to access the API token
+    mcp_server_instance = MCPHTTPServer()
+    
     print(f"MCP HTTP Server running on port {port}")
     print(f"Health check: http://localhost:{port}/health")
     print(f"MCP endpoints: http://localhost:{port}/mcp (POST/GET)")
     print(f"SSC endpoints: http://localhost:{port}/ssc (POST/GET) - LeChat compatible")
     print(f"Auth info: http://localhost:{port}/auth")
-    print(f"API Token: {mcp_server.api_token}")
+    print(f"API Token: {mcp_server_instance.api_token}")
     print(f"Authentication required for MCP/SSC endpoints!")
     print(f"LeChat will detect this as MCP server due to 'mcp'/'ssc' in URL")
     
