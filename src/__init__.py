@@ -17,10 +17,8 @@ __author__ = "OuiComply Team"
 __description__ = "OuiComply MCP Server - AI Assisted Legal Compliance Checker"
 
 from .config import get_config, validate_config
-from .mcp_server import OuiComplyMCPServer
 
 __all__ = [
     "get_config",
-    "validate_config", 
-    "OuiComplyMCPServer",
+    "validate_config",
 ]
