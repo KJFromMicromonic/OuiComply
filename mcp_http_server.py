@@ -120,20 +120,87 @@ class MCPHTTPServer:
     
     async def _handle_list_tools(self, params):
         """Handle MCP tools/list request."""
-        # Get tools from the MCP server
-        tools = []
-        for tool in self.mcp_server.server._tools.values():
-            tools.append({
-                "name": tool.name,
-                "description": tool.description,
-                "inputSchema": tool.inputSchema
-            })
+        # Define the available tools manually since we removed the memory tools
+        available_tools = [
+            {
+                "name": "analyze_pdf_document",
+                "description": "Analyze PDF document step by step with structured output",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "document_path": {"type": "string", "description": "Path to the PDF file to analyze"},
+                        "include_steps": {"type": "boolean", "description": "Whether to include detailed step information", "default": True},
+                        "output_format": {"type": "string", "description": "Output format: detailed, summary, or structured", "default": "detailed"}
+                    },
+                    "required": ["document_path"]
+                }
+            },
+            {
+                "name": "analyze_document_compliance",
+                "description": "Analyze document for compliance with specified frameworks",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "document_path": {"type": "string", "description": "Path to the document to analyze"},
+                        "frameworks": {"type": "array", "items": {"type": "string"}, "description": "Compliance frameworks to check"},
+                        "analysis_type": {"type": "string", "description": "Type of analysis to perform"}
+                    },
+                    "required": ["document_path"]
+                }
+            },
+            {
+                "name": "generate_compliance_report",
+                "description": "Generate a compliance report in specified format",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "report_id": {"type": "string", "description": "ID of the report to generate"},
+                        "format": {"type": "string", "description": "Output format (json, markdown, html)"}
+                    },
+                    "required": ["report_id"]
+                }
+            },
+            {
+                "name": "generate_audit_trail",
+                "description": "Generate audit trail entry for GitHub",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "report_id": {"type": "string", "description": "ID of the compliance report"},
+                        "repository": {"type": "string", "description": "GitHub repository name"},
+                        "branch": {"type": "string", "description": "GitHub branch name"}
+                    },
+                    "required": ["report_id"]
+                }
+            },
+            {
+                "name": "get_compliance_history",
+                "description": "Get compliance assessment history from local cache",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "document_id": {"type": "string", "description": "Filter by document ID"},
+                        "limit": {"type": "integer", "description": "Maximum number of results"}
+                    }
+                }
+            },
+            {
+                "name": "analyze_risk_trends",
+                "description": "Analyze risk trends from local compliance data",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "days": {"type": "integer", "description": "Number of days to analyze"}
+                    }
+                }
+            }
+        ]
         
         return {
             "jsonrpc": "2.0",
             "id": params.get('id'),
             "result": {
-                "tools": tools
+                "tools": available_tools
             }
         }
     

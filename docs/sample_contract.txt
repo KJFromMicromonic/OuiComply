@@ -1,0 +1,39 @@
+SERVICE AGREEMENT
+
+This Service Agreement ("Agreement") is entered into on [DATE] between:
+
+Company Name: [COMPANY NAME]
+Address: [COMPANY ADDRESS]
+("Service Provider")
+
+And
+
+Client Name: [CLIENT NAME]
+Address: [CLIENT ADDRESS]
+("Client")
+
+1. SERVICES
+The Service Provider agrees to provide the following services:
+- Data processing and analysis
+- Cloud storage and backup services
+- Customer support and maintenance
+
+2. DATA PROTECTION
+The Service Provider shall comply with all applicable data protection laws including:
+- General Data Protection Regulation (GDPR)
+- California Consumer Privacy Act (CCPA)
+- Health Insurance Portability and Accountability Act (HIPAA)
+
+3. CONFIDENTIALITY
+Both parties agree to maintain strict confidentiality of all shared information and data.
+
+4. TERMINATION
+This agreement may be terminated by either party with 30 days written notice.
+
+5. GOVERNING LAW
+This agreement shall be governed by the laws of [JURISDICTION].
+
+IN WITNESS WHEREOF, the parties have executed this Agreement as of the date first written above.
+
+Service Provider: _________________ Date: _________
+Client: _________________ Date: _________

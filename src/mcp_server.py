@@ -28,6 +28,7 @@ import structlog
 
 from .config import get_config, validate_config, print_config_summary
 from .tools.compliance_engine import ComplianceEngine, ComplianceReport
+from .tools.pdf_analysis_tool import PDFAnalysisTool
 
 # Configure structured logging
 structlog.configure(
@@ -68,6 +69,7 @@ class OuiComplyMCPServer:
         self.config = get_config()
         self.server = Server("ouicomply-mcp")
         self.compliance_engine = ComplianceEngine()
+        self.pdf_analysis_tool = PDFAnalysisTool()
         self._reports_cache = {}  # Cache for storing reports
         self._setup_handlers()
         
@@ -196,6 +198,30 @@ class OuiComplyMCPServer:
             logger.info("Listing available tools")
             
             return [
+                Tool(
+                    name="analyze_pdf_document",
+                    description="Analyze PDF document step by step with structured output",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "document_path": {
+                                "type": "string",
+                                "description": "Path to the PDF file to analyze"
+                            },
+                            "include_steps": {
+                                "type": "boolean",
+                                "description": "Whether to include detailed step information",
+                                "default": True
+                            },
+                            "output_format": {
+                                "type": "string",
+                                "description": "Output format: detailed, summary, or structured",
+                                "default": "detailed"
+                            }
+                        },
+                        "required": ["document_path"]
+                    }
+                ),
                 Tool(
                     name="analyze_document_compliance",
                     description="Perform comprehensive compliance analysis on a document using Mistral DocumentAI",
@@ -330,7 +356,9 @@ class OuiComplyMCPServer:
             logger.info(f"Tool called: {name} with arguments: {arguments}")
             
             try:
-                if name == "analyze_document_compliance":
+                if name == "analyze_pdf_document":
+                    return await self.pdf_analysis_tool.analyze_pdf_document(arguments)
+                elif name == "analyze_document_compliance":
                     return await self._handle_analyze_document_compliance(arguments)
                 elif name == "generate_compliance_report":
                     return await self._handle_generate_compliance_report(arguments)
