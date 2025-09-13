@@ -680,5 +680,12 @@ async def main():
     await server.run()
 
 
+# ALPIC-compatible MCP transport pattern
+def run_mcp_server():
+    """ALPIC-compatible MCP server runner."""
+    asyncio.run(main())
+
+
 if __name__ == "__main__":
+    # Use mcp.run() pattern for ALPIC compatibility
     asyncio.run(main())

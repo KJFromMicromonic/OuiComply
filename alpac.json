@@ -2,9 +2,9 @@
   "name": "ouicomply-mcp",
   "version": "1.0.0",
   "description": "OuiComply MCP Server - AI Assisted Legal Compliance Checker",
-  "main": "main.py",
+  "main": "mcp_server_main.py",
   "scripts": {
-    "start": "python main.py",
+    "start": "python mcp_server_main.py",
     "dev": "python main.py",
     "health": "python health_check.py"
   },

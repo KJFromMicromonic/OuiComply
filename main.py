@@ -37,4 +37,5 @@ async def main():
 
 
 if __name__ == "__main__":
+    # ALPIC-compatible MCP transport pattern
     asyncio.run(main())
