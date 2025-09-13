@@ -24,6 +24,7 @@ Set these in your ALPIC environment variables:
 
 ```env
 MISTRAL_KEY=your_mistral_api_key_here
+MCP_API_TOKEN=your_secure_api_token_here
 ALPIC_ENV=true
 ENABLE_HEALTH_CHECK=true
 HEALTH_CHECK_PATH=/health
@@ -38,6 +39,12 @@ LOG_LEVEL=INFO
 - ✅ **Dependencies**: All dependencies properly configured
 - ✅ **Error Handling**: Robust error handling for cloud deployment
 - ✅ **Logging**: Structured logging for ALPIC monitoring
+
+## 🔐 Authentication
+
+- **Required**: All MCP endpoints require API token authentication
+- **Methods**: Authorization header, X-API-Key header, or query parameter
+- **Info**: `GET /auth` - Authentication requirements and methods
 
 ## 🔍 Health Check Endpoints
 

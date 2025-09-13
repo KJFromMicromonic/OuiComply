@@ -39,21 +39,76 @@ class MCPHTTPServer:
     HTTP-based MCP server for ALPIC deployment.
     
     This server provides HTTP endpoints that ALPIC can connect to
-    for MCP communication.
+    for MCP communication with token-based authentication.
     """
     
     def __init__(self):
         self.config = get_config()
         self.mcp_server = OuiComplyMCPServer()
         self.server = None
+        self.api_token = os.getenv('MCP_API_TOKEN', '')
+        
+        # Generate a default token if none provided
+        if not self.api_token:
+            import secrets
+            self.api_token = secrets.token_urlsafe(32)
+            print(f"⚠️  No MCP_API_TOKEN set. Generated temporary token: {self.api_token}")
+            print("⚠️  Set MCP_API_TOKEN environment variable for production!")
+    
+    def authenticate_request(self, request):
+        """
+        Authenticate incoming requests using API token.
+        
+        Args:
+            request: aiohttp request object
+            
+        Returns:
+            bool: True if authenticated, False otherwise
+        """
+        # Check for token in Authorization header
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header[7:]  # Remove 'Bearer ' prefix
+            return token == self.api_token
+        
+        # Check for token in X-API-Key header
+        api_key = request.headers.get('X-API-Key', '')
+        if api_key:
+            return api_key == self.api_token
+        
+        # Check for token in query parameter (less secure, for compatibility)
+        token_param = request.query.get('token', '')
+        if token_param:
+            return token_param == self.api_token
+        
+        return False
+    
+    def create_auth_error_response(self, request_id=None):
+        """Create an authentication error response."""
+        return {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "error": {
+                "code": -32001,
+                "message": "Authentication required. Provide valid API token in Authorization header (Bearer token) or X-API-Key header."
+            }
+        }
         
     async def handle_mcp_request(self, request):
         """
         Handle MCP requests from ALPIC.
         
-        This method processes MCP protocol messages over HTTP.
+        This method processes MCP protocol messages over HTTP with authentication.
         """
         try:
+            # Authenticate the request
+            if not self.authenticate_request(request):
+                logger.warning(f"Authentication failed for request from {request.remote}")
+                return web.json_response(
+                    self.create_auth_error_response(),
+                    status=401
+                )
+            
             # Parse the request body
             if hasattr(request, 'json'):
                 data = await request.json()
@@ -61,7 +116,7 @@ class MCPHTTPServer:
                 body = await request.read()
                 data = json.loads(body.decode('utf-8'))
             
-            logger.info(f"Received MCP request: {data.get('method', 'unknown')}")
+            logger.info(f"Received authenticated MCP request: {data.get('method', 'unknown')}")
             
             # Handle different MCP methods
             method = data.get('method')
@@ -220,9 +275,25 @@ async def create_http_server():
     
     async def health_handler(request):
         """Handle health check requests."""
+        # Health check doesn't require authentication for monitoring
         return web.json_response({
             "status": "healthy",
             "timestamp": datetime.now().isoformat(),
+            "server": mcp_server.config.server_name,
+            "version": mcp_server.config.server_version,
+            "authentication": "required_for_mcp_endpoints"
+        })
+    
+    async def auth_info_handler(request):
+        """Handle authentication info requests."""
+        # This endpoint provides info about authentication without requiring it
+        return web.json_response({
+            "authentication_required": True,
+            "supported_methods": [
+                "Authorization: Bearer <token>",
+                "X-API-Key: <token>",
+                "?token=<token> (query parameter)"
+            ],
             "server": mcp_server.config.server_name,
             "version": mcp_server.config.server_version
         })
@@ -230,6 +301,7 @@ async def create_http_server():
     app = web.Application()
     app.router.add_post('/mcp', mcp_handler)
     app.router.add_get('/health', health_handler)
+    app.router.add_get('/auth', auth_info_handler)
     app.router.add_get('/', health_handler)
     
     return app
@@ -264,6 +336,9 @@ async def main():
     print(f"MCP HTTP Server running on port {port}")
     print(f"Health check: http://localhost:{port}/health")
     print(f"MCP endpoint: http://localhost:{port}/mcp")
+    print(f"Auth info: http://localhost:{port}/auth")
+    print(f"API Token: {mcp_server.api_token}")
+    print(f"Authentication required for MCP endpoints!")
     
     # Keep the server running
     try:

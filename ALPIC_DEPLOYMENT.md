@@ -18,6 +18,9 @@ Set the following environment variables in your ALPIC dashboard:
 # Required
 MISTRAL_KEY=your_mistral_api_key_here
 
+# Required - MCP API Authentication
+MCP_API_TOKEN=your_secure_api_token_here
+
 # Optional - LeChat Memory Integration
 LECHAT_API_URL=https://api.lechat.ai
 LECHAT_API_KEY=your_lechat_api_key
@@ -105,6 +108,7 @@ Set these in your ALPIC dashboard:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `MISTRAL_KEY` | Yes | Mistral AI API key |
+| `MCP_API_TOKEN` | Yes | Secure API token for MCP authentication |
 | `LECHAT_API_KEY` | No | LeChat memory integration |
 | `GITHUB_TOKEN` | No | GitHub audit trail integration |
 | `ALPIC_ENV` | Yes | Set to "true" for ALPIC |
@@ -132,6 +136,40 @@ Set these in your ALPIC dashboard:
 1. **Trigger Deployment**: Push changes to your main branch
 2. **Monitor Logs**: Check ALPIC logs for any startup issues
 3. **Test Health Check**: Visit `/health` endpoint to verify deployment
+
+## 🔐 Authentication
+
+The MCP server requires authentication for all MCP endpoints. You can authenticate using any of these methods:
+
+### 1. Authorization Header (Recommended)
+```bash
+curl -H "Authorization: Bearer YOUR_API_TOKEN" \
+     -H "Content-Type: application/json" \
+     -X POST https://your-domain.alpic.live/mcp \
+     -d '{"jsonrpc": "2.0", "method": "initialize", "id": 1}'
+```
+
+### 2. X-API-Key Header
+```bash
+curl -H "X-API-Key: YOUR_API_TOKEN" \
+     -H "Content-Type: application/json" \
+     -X POST https://your-domain.alpic.live/mcp \
+     -d '{"jsonrpc": "2.0", "method": "initialize", "id": 1}'
+```
+
+### 3. Query Parameter (Less Secure)
+```bash
+curl -H "Content-Type: application/json" \
+     -X POST "https://your-domain.alpic.live/mcp?token=YOUR_API_TOKEN" \
+     -d '{"jsonrpc": "2.0", "method": "initialize", "id": 1}'
+```
+
+### Authentication Info Endpoint
+```
+GET /auth
+```
+
+Returns information about authentication requirements and supported methods.
 
 ## 🔍 Health Check Endpoints
 
