@@ -1,0 +1,67 @@
+# Alpic Configuration for OuiComply MCP Server
+# This file configures the deployment settings for Alpic platform
+
+name: ouicomply-mcp-server
+version: 1.0.0
+description: "OuiComply MCP Server - AI Assisted Legal Compliance Checker"
+
+# Build configuration
+build:
+  command: "pip install -r requirements.txt"
+  python_version: "3.12"
+
+# Runtime configuration
+runtime:
+  command: "python start_fastmcp_server.py"
+  port: 8000
+  health_check: "http://localhost:8001/health"
+
+# Environment variables (set these in Alpic dashboard)
+environment:
+  MISTRAL_API_KEY: "${MISTRAL_API_KEY}"
+  REDIS_URL: "${REDIS_URL}"
+  PORT: "8000"
+  HOST: "0.0.0.0"
+
+# MCP server configuration
+mcp:
+  server_name: "ouicomply-mcp"
+  server_version: "1.0.0"
+  capabilities:
+    tools: true
+    resources: true
+    prompts: false
+    logging: true
+
+# Deployment settings
+deployment:
+  auto_deploy: true
+  branch: "main"
+  restart_policy: "on_failure"
+  scaling:
+    min_instances: 1
+    max_instances: 10
+
+# Monitoring and analytics
+monitoring:
+  enabled: true
+  metrics:
+    - request_count
+    - response_time
+    - error_rate
+    - mcp_tool_usage
+  logs:
+    level: "info"
+    retention_days: 30
+
+# Security settings
+security:
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 100
+  authentication:
+    enabled: false
+    type: "api_key"
+  cors:
+    enabled: true
+    origins: ["*"]
