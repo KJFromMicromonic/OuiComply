@@ -9,6 +9,39 @@ Author: OuiComply Team
 Version: 1.0.0
 """
 
+# Lambda handler for direct invocation - ultra fast, before any imports
+def lambda_handler(event, context):
+    """Lambda handler for direct invocation."""
+    # Handle the specific payload format
+    if "v20250806" in event and "message" in event["v20250806"]:
+        message = event["v20250806"]["message"]
+        if message.get("method") == "oauth/metadata":
+            return {
+                "jsonrpc": "2.0",
+                "id": message.get("id", "unknown"),
+                "result": {
+                    "oauth": {
+                        "version": "1.0.0",
+                        "server_name": "ouicomply-mcp",
+                        "capabilities": {
+                            "tools": True,
+                            "resources": True,
+                            "prompts": False,
+                            "logging": True
+                        },
+                        "status": "ready",
+                        "transport": "streamable-http"
+                    }
+                }
+            }
+
+    # Default response
+    return {
+        "jsonrpc": "2.0",
+        "id": "unknown",
+        "error": {"code": -32601, "message": "Method not found"}
+    }
+
 import asyncio
 import json
 import logging
@@ -21,16 +54,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 # Import required modules
-import mcp
-from mcp.server import Server
 from flask import Flask, request, jsonify
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Create MCP server
-server = Server("ouicomply-alpic")
 
 # Create Flask application
 app = Flask(__name__)
@@ -97,57 +125,9 @@ def root_endpoint():
         }
     })
 
-# Alpic MCP Transport Detection Patterns
-# These patterns ensure Alpic can detect the MCP transport type
+# Alpic optimized server
 
-# Pattern 1: Import patterns for detection
-# These imports are for Alpic detection patterns
-try:
-    from mcp.server.stdio import stdio_server
-except ImportError:
-    pass
 
-# Pattern 2: Transport configuration for detection
-TRANSPORT_TYPE = "streamable-http"
-
-# Pattern 3: MCP server initialization
-mcp_server = Server("ouicomply-alpic")
-
-# Pattern 4: Direct server calls (commented for detection)
-# stdio_server(mcp_server)
-
-# Lambda handler for direct invocation - ultra fast
-def lambda_handler(event, context):
-    """Lambda handler for direct invocation."""
-    # Handle the specific payload format
-    if "v20250806" in event and "message" in event["v20250806"]:
-        message = event["v20250806"]["message"]
-        if message.get("method") == "oauth/metadata":
-            return {
-                "jsonrpc": "2.0",
-                "id": message.get("id", "unknown"),
-                "result": {
-                    "oauth": {
-                        "version": "1.0.0",
-                        "server_name": "ouicomply-mcp",
-                        "capabilities": {
-                            "tools": True,
-                            "resources": True,
-                            "prompts": False,
-                            "logging": True
-                        },
-                        "status": "ready",
-                        "transport": "streamable-http"
-                    }
-                }
-            }
-
-    # Default response
-    return {
-        "jsonrpc": "2.0",
-        "id": "unknown",
-        "error": {"code": -32601, "message": "Method not found"}
-    }
 
 if __name__ == "__main__":
     # Get port from environment variable (Alpic sets this)
