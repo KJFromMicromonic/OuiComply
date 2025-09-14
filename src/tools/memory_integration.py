@@ -12,7 +12,6 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 from pathlib import Path
-
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -168,8 +167,116 @@ class MemoryIntegration:
                 "notification_channel": behavioral_memory.notification_channel,
                 "escalation_rules": behavioral_memory.escalation_rules,
                 "workflow_preferences": behavioral_memory.workflow_preferences
-            }
+            },
+            "insights": compliance_memory.compliance_rules,
+            "compliance_history": [],
+            "last_updated": compliance_memory.last_updated,
+            "compliance_score": min(1.0, len(compliance_memory.compliance_rules) / 10.0)
         }
+    
+    async def store_insight(self, team_id: str, insight: str, category: str = "general") -> Dict[str, Any]:
+        """
+        Store a compliance insight for a team.
+        
+        Args:
+            team_id: Unique identifier for the team
+            insight: The compliance insight to store
+            category: Category of the insight (privacy, security, etc.)
+            
+        Returns:
+            Dictionary containing the storage result
+        """
+        try:
+            if self.use_lechat_mcp:
+                # Use Le Chat MCP for memory storage
+                result = await self.store_memory_via_lechat(
+                    team_id=team_id,
+                    memory_type="insight",
+                    content=insight,
+                    metadata={"category": category}
+                )
+                return {
+                    "memory_id": result.get("memory_id", f"insight_{team_id}_{datetime.utcnow().timestamp()}"),
+                    "team_id": team_id,
+                    "insight": insight,
+                    "category": category,
+                    "stored": True
+                }
+            else:
+                # Fallback to local storage
+                memory_id = f"insight_{team_id}_{datetime.utcnow().timestamp()}"
+                
+                # Store in local memory structure
+                if team_id not in self.compliance_memories:
+                    self.compliance_memories[team_id] = ComplianceMemory(team_id=team_id)
+                
+                # Add insight to compliance rules
+                self.compliance_memories[team_id].compliance_rules.append(f"[{category}] {insight}")
+                self.compliance_memories[team_id].last_updated = datetime.utcnow().isoformat()
+                
+                await self.save_memories()
+                
+                return {
+                    "memory_id": memory_id,
+                    "team_id": team_id,
+                    "insight": insight,
+                    "category": category,
+                    "stored": True
+                }
+        except Exception as e:
+            logger.error(f"Error storing insight for {team_id}: {e}")
+            return {
+                "memory_id": None,
+                "team_id": team_id,
+                "insight": insight,
+                "category": category,
+                "stored": False,
+                "error": str(e)
+            }
+    
+    async def get_team_status(self, team_id: str) -> Dict[str, Any]:
+        """
+        Get current compliance status for a team.
+        
+        Args:
+            team_id: Unique identifier for the team
+            
+        Returns:
+            Dictionary containing the team's compliance status
+        """
+        try:
+            # Get team memory data
+            memory_data = await self.get_team_memory(team_id)
+            
+            # Calculate compliance score based on available data
+            compliance_score = memory_data.get("compliance_score", 0.0)
+            
+            # Determine overall status
+            if compliance_score >= 0.8:
+                overall_status = "compliant"
+            elif compliance_score >= 0.5:
+                overall_status = "partially_compliant"
+            else:
+                overall_status = "non_compliant"
+            
+            return {
+                "team_id": team_id,
+                "overall_status": overall_status,
+                "compliance_score": compliance_score,
+                "last_updated": memory_data.get("last_updated", datetime.utcnow().isoformat()),
+                "active_frameworks": memory_data.get("compliance_memory", {}).get("preferred_frameworks", []),
+                "risk_tolerance": memory_data.get("compliance_memory", {}).get("risk_tolerance", "medium")
+            }
+        except Exception as e:
+            logger.error(f"Error getting team status for {team_id}: {e}")
+            return {
+                "team_id": team_id,
+                "overall_status": "unknown",
+                "compliance_score": 0.0,
+                "last_updated": datetime.utcnow().isoformat(),
+                "active_frameworks": [],
+                "error": str(e)
+            }
     
     async def update_compliance_memory(
         self, 

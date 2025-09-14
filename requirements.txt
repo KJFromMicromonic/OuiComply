@@ -1,38 +1,7 @@
-# MCP Server Dependencies
-mcp>=1.0.0
-python-dotenv>=1.0.0
-pydantic>=2.0.0
-pydantic-settings>=2.0.0
-asyncio-mqtt>=0.16.0
-httpx>=0.25.0
-
-# Mistral AI Dependencies
-mistralai>=1.9.0
-
-# Document Processing Dependencies
-PyPDF2>=3.0.0
-python-docx>=0.8.11
-python-magic>=0.4.27
-Pillow>=10.0.0
-
-# Data Processing Dependencies
-pandas>=2.0.0
-numpy>=1.24.0
-jsonschema>=4.17.0
-
-# Development Dependencies
-pytest>=7.0.0
-pytest-asyncio>=0.21.0
-black>=23.0.0
-flake8>=6.0.0
-mypy>=1.0.0
-
-# Optional: For enhanced logging
-structlog>=23.0.0
-
-# HTTP Server Dependencies
-aiohttp>=3.8.0
-requests>=2.28.0
-
-# Hugging Face Hub Dependencies
-huggingface_hub>=0.20.0
+# MCP Server Dependencies for Vercel
+mcp>=1.14.0
+pydantic>=2.10.3
+pydantic-settings>=2.1.0
+structlog>=23.2.0
+mistralai>=1.9.10
+requests>=2.32.3

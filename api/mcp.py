@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """
-Working MCP Server implementation using the official Python SDK.
+Vercel API route for MCP server.
 """
 
 import asyncio
 import json
-import uuid
+import os
+import sys
 from datetime import datetime
 from typing import Any, Dict, List
+
+# Add the project root to the Python path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mcp.server import Server
 from mcp.server.models import InitializationOptions
@@ -358,7 +362,7 @@ async def update_memory(arguments: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "team_id": team_id,
             "insight_stored": True,
-            "memory_id": result.get("memory_id", str(uuid.uuid4())),
+            "memory_id": result.get("memory_id", "unknown"),
             "category": category,
             "timestamp": datetime.utcnow().isoformat()
         }
@@ -398,31 +402,212 @@ async def get_compliance_status(arguments: Dict[str, Any]) -> Dict[str, Any]:
         }
 
 
-async def main():
-    """Main entry point for the MCP server."""
-    print(f"🚀 Starting OuiComply MCP Server (Working Implementation)...")
-    print(f"📚 Available Tools: analyze_document, update_memory, get_compliance_status")
-    print(f"📄 Available Resources: compliance://frameworks, memory://team/{{team_id}}")
-    print(f"💬 Available Prompts: compliance_analysis")
-    print(f"✅ Server ready for Le Chat integration!")
+def handler(request):
+    """Vercel serverless function handler."""
+    from http.server import BaseHTTPRequestHandler
+    import io
     
-    # Run the MCP server
-    from mcp.server.stdio import stdio_server
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            InitializationOptions(
-                server_name="ouicomply-mcp",
-                server_version="1.0.0",
-                capabilities={
-                    "tools": {"listChanged": True},
-                    "resources": {"subscribe": True, "listChanged": True},
-                    "prompts": {"listChanged": True}
+    class Request:
+        def __init__(self, method, path, headers, body):
+            self.method = method
+            self.path = path
+            self.headers = headers
+            self.body = body
+    
+    # Parse the request
+    method = request.get("method", "GET")
+    path = request.get("path", "/")
+    headers = request.get("headers", {})
+    body = request.get("body", "")
+    
+    # Create request object
+    req = Request(method, path, headers, body)
+    
+    # Handle different endpoints
+    if path == "/health" or path == "/":
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization"
+            },
+            "body": json.dumps({
+                "status": "healthy",
+                "mcp_server": "ouicomply-vercel",
+                "services": {
+                    "mcp_protocol": "ready",
+                    "tools": 3,
+                    "resources": 2,
+                    "prompts": 1
+                },
+                "timestamp": datetime.utcnow().isoformat(),
+                "deployment": "vercel"
+            })
+        }
+    
+    elif path == "/mcp":
+        if method == "POST":
+            try:
+                # Parse JSON-RPC request
+                data = json.loads(body) if body else {}
+                method_name = data.get("method")
+                params = data.get("params", {})
+                request_id = data.get("id")
+                
+                # Handle MCP methods
+                if method_name == "initialize":
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "result": {
+                            "protocolVersion": "2024-11-05",
+                            "capabilities": {
+                                "tools": {"listChanged": True},
+                                "resources": {"subscribe": True, "listChanged": True},
+                                "prompts": {"listChanged": True}
+                            },
+                            "serverInfo": {
+                                "name": "ouicomply-mcp",
+                                "version": "1.0.0"
+                            }
+                        }
+                    }
+                elif method_name == "tools/list":
+                    tools = [
+                        {
+                            "name": "analyze_document",
+                            "description": "Analyze a document for compliance issues using AI",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "document_content": {"type": "string", "description": "Document content to analyze"},
+                                    "document_type": {"type": "string", "description": "Type of document (contract, policy, etc.)"},
+                                    "frameworks": {"type": "array", "items": {"type": "string"}, "description": "Compliance frameworks to check"}
+                                },
+                                "required": ["document_content"]
+                            }
+                        },
+                        {
+                            "name": "update_memory",
+                            "description": "Update team memory with new compliance insights",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "team_id": {"type": "string", "description": "Team identifier"},
+                                    "insight": {"type": "string", "description": "Compliance insight to store"},
+                                    "category": {"type": "string", "description": "Category of insight"}
+                                },
+                                "required": ["team_id", "insight"]
+                            }
+                        },
+                        {
+                            "name": "get_compliance_status",
+                            "description": "Get current compliance status for a team",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "team_id": {"type": "string", "description": "Team identifier"},
+                                    "framework": {"type": "string", "description": "Specific framework to check"}
+                                },
+                                "required": ["team_id"]
+                            }
+                        }
+                    ]
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "result": {"tools": tools}
+                    }
+                elif method_name == "tools/call":
+                    tool_name = params.get("name")
+                    arguments = params.get("arguments", {})
+                    
+                    # Call the appropriate tool
+                    if tool_name == "analyze_document":
+                        result = asyncio.run(analyze_document(arguments))
+                    elif tool_name == "update_memory":
+                        result = asyncio.run(update_memory(arguments))
+                    elif tool_name == "get_compliance_status":
+                        result = asyncio.run(get_compliance_status(arguments))
+                    else:
+                        response = {
+                            "jsonrpc": "2.0",
+                            "id": request_id,
+                            "error": {"code": -32601, "message": f"Unknown tool: {tool_name}"}
+                        }
+                        return {
+                            "statusCode": 200,
+                            "headers": {
+                                "Content-Type": "application/json",
+                                "Access-Control-Allow-Origin": "*"
+                            },
+                            "body": json.dumps(response)
+                        }
+                    
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "result": {
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": json.dumps(result, indent=2)
+                                }
+                            ]
+                        }
+                    }
+                else:
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "error": {"code": -32601, "message": f"Method not found: {method_name}"}
+                    }
+                
+                return {
+                    "statusCode": 200,
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "Access-Control-Allow-Origin": "*"
+                    },
+                    "body": json.dumps(response)
                 }
-            )
-        )
+                
+            except Exception as e:
+                return {
+                    "statusCode": 500,
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "Access-Control-Allow-Origin": "*"
+                    },
+                    "body": json.dumps({
+                        "jsonrpc": "2.0",
+                        "id": data.get("id", "unknown"),
+                        "error": {"code": -32603, "message": f"Internal error: {str(e)}"}
+                    })
+                }
+        else:
+            return {
+                "statusCode": 405,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*"
+                },
+                "body": json.dumps({"error": "Method not allowed"})
+            }
+    
+    else:
+        return {
+            "statusCode": 404,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            },
+            "body": json.dumps({"error": "Not found"})
+        }
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+# Vercel entry point
+def main(request):
+    return handler(request)

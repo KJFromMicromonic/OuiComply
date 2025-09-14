@@ -1,0 +1,16 @@
+{
+  "compliance_memories": {
+    "test_team_123": {
+      "team_id": "test_team_123",
+      "compliance_rules": [
+        "[testing] Test compliance insight",
+        "[testing] Test compliance insight"
+      ],
+      "pitfall_patterns": [],
+      "preferred_frameworks": [],
+      "risk_tolerance": "medium",
+      "last_updated": "2025-09-14T00:45:20.804977"
+    }
+  },
+  "behavioral_memories": {}
+}

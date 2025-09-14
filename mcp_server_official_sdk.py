@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Sequence
 from urllib.parse import urlparse
 
-from mcp.serer.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP
 from mcp.server.models import InitializationOptions
 from mcp.types import (
     CallToolResult,
@@ -24,7 +24,6 @@ from mcp.types import (
     ResourceTemplate,
     TextContent,
     Tool,
-    ToolInputSchema,
 )
 from pydantic import BaseModel, Field
 
@@ -385,31 +384,34 @@ Remember to be thorough, accurate, and practical in your recommendations.
                 }
             ]
     
-    async def run(self, host: str = "0.0.0.0", port: int = 8000):
+    def run(self, transport: str = "streamable-http", host: str = "0.0.0.0", port: int = 8000):
         """
         Run the MCP server.
         
         Args:
-            host: Host to bind the server to
-            port: Port to bind the server to
+            transport: Transport protocol to use ("stdio", "sse", or "streamable-http")
+            host: Host to bind the server to (for streamable-http)
+            port: Port to bind the server to (for streamable-http)
         """
         print(f"🚀 Starting OuiComply MCP Server (Official SDK)...")
-        print(f"📡 Server: http://{host}:{port}")
-        print(f"🔧 MCP Protocol: http://{host}:{port}/mcp")
+        print(f"📡 Transport: {transport}")
+        if transport == "streamable-http":
+            print(f"📡 Server: http://{host}:{port}")
+            print(f"🔧 MCP Protocol: http://{host}:{port}/mcp")
         print(f"📚 Available Tools: analyze_document, update_memory, get_compliance_status")
         print(f"📄 Available Resources: compliance://frameworks, memory://team/{{team_id}}")
         print(f"💬 Available Prompts: compliance_analysis")
         print(f"✅ Server ready for Le Chat integration!")
         
         # Run the FastMCP server
-        await self.mcp.run(host=host, port=port)
+        self.mcp.run(transport=transport)
 
 
-async def main():
+def main():
     """Main entry point for the MCP server."""
     server = OuiComplyMCPServer()
-    await server.run()
+    server.run()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

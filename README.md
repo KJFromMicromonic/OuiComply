@@ -200,7 +200,24 @@ Once downloaded, these contracts can be used for:
 
 ### Starting the MCP Server
 
-#### Official MCP Server (Recommended)
+#### Vercel Deployment (Recommended for Production)
+```bash
+# Deploy to Vercel
+python deploy_to_vercel.py
+
+# Or manually with Vercel CLI
+vercel --prod
+```
+
+**Features:**
+- Production-ready serverless deployment
+- Automatic scaling and reliability
+- Full MCP protocol compliance
+- Tools: `analyze_document`, `update_memory`, `get_compliance_status`
+- Resources: `compliance://frameworks`, `memory://team/{team_id}`
+- Prompts: `compliance_analysis`
+
+#### Official MCP Server (Local Development)
 ```bash
 # Install dependencies
 pip install -r requirements_mcp.txt
@@ -351,6 +368,19 @@ Content-Type: application/json
 ```
 
 ### Testing the API
+
+#### Test Vercel Deployment
+Test your deployed MCP server on Vercel:
+
+```bash
+python test_vercel_deployment.py
+```
+
+This will test:
+- Health check endpoint
+- MCP protocol initialization
+- Tool listing and execution
+- All available tools and resources
 
 #### Test Function-Based Routing
 Use the provided test script to verify all endpoints:

@@ -11,6 +11,7 @@ from typing import Dict, Any
 from datetime import datetime
 import sys
 from pathlib import Path
+from mcp.server.fastmcp
 
 # Add src directory to Python path for imports
 src_path = Path(__file__).parent / "src"
