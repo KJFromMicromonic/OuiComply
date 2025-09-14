@@ -21,23 +21,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 # Import required modules
-try:
-    import mcp
-    from mcp.server import Server
-    from starlette.applications import Starlette
-    from starlette.routing import Route
-    from starlette.responses import JSONResponse
-    from starlette.requests import Request
-except ImportError:
-    print("Required modules not installed. Installing...")
-    import subprocess
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "mcp", "starlette"])
-    import mcp
-    from mcp.server import Server
-    from starlette.applications import Starlette
-    from starlette.routing import Route
-    from starlette.responses import JSONResponse
-    from starlette.requests import Request
+import mcp
+from mcp.server import Server
+from flask import Flask, request, jsonify
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -46,11 +32,15 @@ logger = logging.getLogger(__name__)
 # Create MCP server
 server = Server("ouicomply-alpic")
 
+# Create Flask application
+app = Flask(__name__)
+
 # Health check endpoint
-async def health_check(request: Request):
+@app.route("/health", methods=["GET"])
+def health_check():
     """Health check endpoint for Alpic deployment."""
     logger.info("Health check requested")
-    return JSONResponse({
+    return jsonify({
         "status": "healthy",
         "service": "OuiComply MCP Server",
         "version": "1.0.0",
@@ -60,19 +50,20 @@ async def health_check(request: Request):
     })
 
 # OAuth metadata endpoint - handles both GET and POST
-async def oauth_metadata(request: Request):
+@app.route("/oauth/metadata", methods=["GET", "POST"])
+def oauth_metadata():
     """OAuth metadata endpoint for Alpic deployment."""
     logger.info(f"OAuth metadata requested: {request.method}")
-    
+
     # Handle both GET and POST requests
     if request.method == "POST":
         try:
-            body = await request.json()
+            body = request.get_json()
             logger.info(f"POST body: {body}")
         except Exception as e:
             logger.warning(f"Could not parse POST body: {e}")
-    
-    return JSONResponse({
+
+    return jsonify({
         "jsonrpc": "2.0",
         "id": request.headers.get("x-request-id", "unknown"),
         "result": {
@@ -92,10 +83,11 @@ async def oauth_metadata(request: Request):
     })
 
 # Root endpoint
-async def root_endpoint(request: Request):
+@app.route("/", methods=["GET"])
+def root_endpoint():
     """Root endpoint for Alpic deployment."""
     logger.info("Root endpoint requested")
-    return JSONResponse({
+    return jsonify({
         "message": "OuiComply MCP Server is running",
         "version": "1.0.0",
         "endpoints": {
@@ -104,15 +96,6 @@ async def root_endpoint(request: Request):
             "mcp": "streamable-http"
         }
     })
-
-# Create Starlette application
-app = Starlette(
-    routes=[
-        Route("/", root_endpoint, methods=["GET"]),
-        Route("/health", health_check, methods=["GET"]),
-        Route("/oauth/metadata", oauth_metadata, methods=["GET", "POST"]),
-    ]
-)
 
 # Alpic MCP Transport Detection Patterns
 # These patterns ensure Alpic can detect the MCP transport type
@@ -133,24 +116,50 @@ mcp_server = Server("ouicomply-alpic")
 # Pattern 4: Direct server calls (commented for detection)
 # stdio_server(mcp_server)
 
+# Lambda handler for direct invocation - ultra fast
+def lambda_handler(event, context):
+    """Lambda handler for direct invocation."""
+    # Handle the specific payload format
+    if "v20250806" in event and "message" in event["v20250806"]:
+        message = event["v20250806"]["message"]
+        if message.get("method") == "oauth/metadata":
+            return {
+                "jsonrpc": "2.0",
+                "id": message.get("id", "unknown"),
+                "result": {
+                    "oauth": {
+                        "version": "1.0.0",
+                        "server_name": "ouicomply-mcp",
+                        "capabilities": {
+                            "tools": True,
+                            "resources": True,
+                            "prompts": False,
+                            "logging": True
+                        },
+                        "status": "ready",
+                        "transport": "streamable-http"
+                    }
+                }
+            }
+
+    # Default response
+    return {
+        "jsonrpc": "2.0",
+        "id": "unknown",
+        "error": {"code": -32601, "message": "Method not found"}
+    }
+
 if __name__ == "__main__":
     # Get port from environment variable (Alpic sets this)
     port = int(os.environ.get("PORT", 8000))
     host = os.environ.get("HOST", "0.0.0.0")
-    
+
     print("Starting OuiComply Alpic MCP Server...")
     print(f"Server will run on {host}:{port}")
     print("Transport: streamable-http")
     print("Health check: http://localhost:8000/health")
     print("OAuth metadata: http://localhost:8000/oauth/metadata")
     print("Root endpoint: http://localhost:8000/")
-    
-    # Run with uvicorn for Alpic compatibility
-    import uvicorn
-    uvicorn.run(
-        app,
-        host=host,
-        port=port,
-        log_level="info",
-        access_log=True
-    )
+
+    # Run with Flask
+    app.run(host=host, port=port, debug=False)

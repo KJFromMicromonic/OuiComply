@@ -475,25 +475,28 @@ class LeChatMCPServer:
         # Handle different MCP methods
         if method == "initialize":
             return self._handle_initialize(request_id, params)
-        
+
         elif method == "tools/list":
             return self._handle_tools_list(request_id)
-        
+
         elif method == "tools/call":
             return self._handle_tools_call(request_id, params)
-        
+
         elif method == "resources/list":
             return self._handle_resources_list(request_id)
-        
+
         elif method == "resources/read":
             return self._handle_resources_read(request_id, params)
-        
+
         elif method == "prompts/list":
             return self._handle_prompts_list(request_id)
-        
+
         elif method == "prompts/get":
             return self._handle_prompts_get(request_id, params)
-        
+
+        elif method == "oauth/metadata":
+            return self._handle_oauth_metadata(request_id)
+
         else:
             return {
                 "jsonrpc": "2.0",

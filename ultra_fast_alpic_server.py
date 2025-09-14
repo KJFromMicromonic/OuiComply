@@ -98,6 +98,28 @@ app = Starlette(
     ]
 )
 
+# Lambda handler for direct invocation
+def lambda_handler(event, context):
+    """Lambda handler for direct invocation."""
+    logger.info(f"Lambda event: {event}")
+
+    # Handle the specific payload format
+    if "v20250806" in event and "message" in event["v20250806"]:
+        message = event["v20250806"]["message"]
+        if message.get("method") == "oauth/metadata":
+            # Update timestamp
+            response = OAUTH_RESPONSE.copy()
+            response["result"]["oauth"]["timestamp"] = datetime.now(UTC).isoformat()
+            response["id"] = message.get("id", "unknown")
+            return response
+
+    # Default response
+    return {
+        "jsonrpc": "2.0",
+        "id": "unknown",
+        "error": {"code": -32601, "message": "Method not found"}
+    }
+
 # MCP Transport Detection Patterns for Alpic
 # These patterns ensure Alpic can detect the MCP transport type
 try:
