@@ -11,8 +11,5 @@
       "src": "/(.*)",
       "dest": "vercel_minimal.py"
     }
-  ],
-  "env": {
-    "PYTHONPATH": "/var/task"
-  }
+  ]
 }

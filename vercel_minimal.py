@@ -1,21 +1,10 @@
-#!/usr/bin/env python3
-"""
-Minimal Vercel MCP Server - Ultra-lightweight for debugging
-"""
-
-import json
-from datetime import datetime, UTC
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import json
+from datetime import datetime, UTC
 
-# Create minimal FastAPI app
-app = FastAPI(
-    title="OuiComply MCP Server",
-    description="Minimal MCP Server for Vercel",
-    version="1.0.0"
-)
+app = FastAPI(title="OuiComply MCP Server")
 
-# Add CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,8 +14,7 @@ app.add_middleware(
 )
 
 @app.get("/")
-async def root():
-    """Root endpoint."""
+def read_root():
     return {
         "name": "ouicomply-mcp",
         "version": "1.0.0",
@@ -35,8 +23,7 @@ async def root():
     }
 
 @app.get("/health")
-async def health():
-    """Health check."""
+def health():
     return {
         "status": "healthy",
         "server": "ouicomply-mcp",
@@ -44,8 +31,7 @@ async def health():
     }
 
 @app.post("/mcp")
-async def mcp_endpoint(request: dict):
-    """MCP endpoint."""
+def mcp_endpoint(request: dict):
     return {
         "jsonrpc": "2.0",
         "id": request.get("id"),
@@ -54,8 +40,3 @@ async def mcp_endpoint(request: dict):
             "timestamp": datetime.now(UTC).isoformat()
         }
     }
-
-# For Vercel
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
