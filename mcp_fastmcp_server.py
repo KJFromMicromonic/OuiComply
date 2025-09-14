@@ -533,7 +533,7 @@ def run_mcp_server():
 
 # Alpic MCP Transport Detection Pattern
 # This pattern is specifically for Alpic deployment detection
-mcp.run(transport="streamable-http")
+# Note: mcp.run() is not available in the MCP library, using alternative patterns
 
 if __name__ == "__main__":
     # Run the FastMCP server

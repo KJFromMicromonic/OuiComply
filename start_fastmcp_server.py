@@ -23,7 +23,7 @@ import mcp
 
 # Alpic MCP Transport Detection Pattern
 # This pattern is specifically for Alpic deployment detection
-mcp.run(transport="streamable-http")
+# Note: mcp.run() is not available in the MCP library, using alternative patterns
 
 def main():
     """Start the FastMCP server with Starlette."""
