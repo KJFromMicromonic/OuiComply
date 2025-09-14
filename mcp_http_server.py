@@ -1,414 +1,406 @@
 #!/usr/bin/env python3
 """
-OuiComply MCP HTTP Server for ALPIC
-
-This file provides an HTTP-based MCP server that ALPIC can connect to.
-ALPIC requires HTTP/HTTPS endpoints for MCP connections, not stdio.
+HTTP wrapper for official MCP server to enable web deployment
 """
 
 import asyncio
 import json
-import logging
 import os
-from datetime import datetime
-from typing import Any, Dict, List, Optional
-from pathlib import Path
+from typing import Dict, Any
+from flask import Flask, request, jsonify, Response
+from flask_cors import CORS
 
-try:
-    import aiohttp
-    from aiohttp import web
-except ImportError:
-    print("aiohttp is required for HTTP MCP server. Install with: pip install aiohttp")
-    exit(1)
-
-# Add src directory to Python path for imports
-src_path = Path(__file__).parent / "src"
-import sys
-sys.path.insert(0, str(src_path))
-
-from src.mcp_server import OuiComplyMCPServer
-from src.config import get_config, validate_config, print_config_summary
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
+from mcp_server_official import OuiComplyMCPServer
 
 class MCPHTTPServer:
-    """
-    HTTP-based MCP server for ALPIC deployment.
-    
-    This server provides HTTP endpoints that ALPIC can connect to
-    for MCP communication without authentication.
-    """
-    
     def __init__(self):
-        self.config = get_config()
+        self.app = Flask(__name__)
+        CORS(self.app)
+        
+        # Initialize the MCP server
         self.mcp_server = OuiComplyMCPServer()
-        self.server = None
         
-    async def handle_mcp_request(self, request):
-        """
-        Handle MCP requests from ALPIC.
-        
-        This method processes MCP protocol messages over HTTP without authentication.
-        """
-        try:
-            # Parse the request body
-            if hasattr(request, 'json'):
-                data = await request.json()
-            else:
-                body = await request.read()
-                data = json.loads(body.decode('utf-8'))
-            
-            logger.info(f"Received MCP request: {data.get('method', 'unknown')}")
-            
-            # Handle different MCP methods
-            method = data.get('method')
-            params = data.get('params', {})
-            
-            if method == 'initialize':
-                response = await self._handle_initialize(params)
-            elif method == 'tools/list':
-                response = await self._handle_list_tools(params)
-            elif method == 'tools/call':
-                response = await self._handle_call_tool(params)
-            elif method == 'resources/list':
-                response = await self._handle_list_resources(params)
-            elif method == 'resources/read':
-                response = await self._handle_read_resource(params)
-            else:
-                response = {
-                    "jsonrpc": "2.0",
-                    "id": data.get('id'),
-                    "error": {
-                        "code": -32601,
-                        "message": f"Method not found: {method}"
-                    }
-                }
-            
-            return response
-            
-        except Exception as e:
-            logger.error(f"Error handling MCP request: {e}")
-            return {
-                "jsonrpc": "2.0",
-                "id": data.get('id') if 'data' in locals() else None,
-                "error": {
-                    "code": -32603,
-                    "message": f"Internal error: {str(e)}"
-                }
-            }
+        # Setup routes
+        self._setup_routes()
     
-    async def _handle_initialize(self, params):
-        """Handle MCP initialize request."""
-        return {
-            "jsonrpc": "2.0",
-            "id": params.get('id'),
-            "result": {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {
-                    "tools": {},
-                    "resources": {}
+    def _setup_routes(self):
+        """Setup HTTP routes that wrap MCP functionality."""
+        
+        @self.app.route("/health", methods=["GET"])
+        def health_check():
+            """Health check endpoint."""
+            return jsonify({
+                "status": "healthy",
+                "mcp_server": "ouicomply-official",
+                "services": {
+                    "mcp_protocol": "ready",
+                    "tools": 3,
+                    "resources": 2,
+                    "prompts": 1
                 },
-                "serverInfo": {
-                    "name": self.config.server_name,
-                    "version": self.config.server_version
-                }
-            }
-        }
-    
-    async def _handle_list_tools(self, params):
-        """Handle MCP tools/list request."""
-        # Define the available tools manually since we removed the memory tools
-        available_tools = [
-            {
-                "name": "analyze_pdf_document",
-                "description": "Analyze PDF document step by step with structured output",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "document_path": {"type": "string", "description": "Path to the PDF file to analyze"},
-                        "include_steps": {"type": "boolean", "description": "Whether to include detailed step information", "default": True},
-                        "output_format": {"type": "string", "description": "Output format: detailed, summary, or structured", "default": "detailed"}
-                    },
-                    "required": ["document_path"]
-                }
-            },
-            {
-                "name": "analyze_document_compliance",
-                "description": "Analyze document for compliance with specified frameworks",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "document_path": {"type": "string", "description": "Path to the document to analyze"},
-                        "frameworks": {"type": "array", "items": {"type": "string"}, "description": "Compliance frameworks to check"},
-                        "analysis_type": {"type": "string", "description": "Type of analysis to perform"}
-                    },
-                    "required": ["document_path"]
-                }
-            },
-            {
-                "name": "generate_compliance_report",
-                "description": "Generate a compliance report in specified format",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "report_id": {"type": "string", "description": "ID of the report to generate"},
-                        "format": {"type": "string", "description": "Output format (json, markdown, html)"}
-                    },
-                    "required": ["report_id"]
-                }
-            },
-            {
-                "name": "generate_audit_trail",
-                "description": "Generate audit trail entry for GitHub",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "report_id": {"type": "string", "description": "ID of the compliance report"},
-                        "repository": {"type": "string", "description": "GitHub repository name"},
-                        "branch": {"type": "string", "description": "GitHub branch name"}
-                    },
-                    "required": ["report_id"]
-                }
-            },
-            {
-                "name": "get_compliance_history",
-                "description": "Get compliance assessment history from local cache",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "document_id": {"type": "string", "description": "Filter by document ID"},
-                        "limit": {"type": "integer", "description": "Maximum number of results"}
-                    }
-                }
-            },
-            {
-                "name": "analyze_risk_trends",
-                "description": "Analyze risk trends from local compliance data",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "days": {"type": "integer", "description": "Number of days to analyze"}
-                    }
-                }
-            }
-        ]
+                "timestamp": "2025-09-14T01:45:00Z"
+            })
         
-        return {
-            "jsonrpc": "2.0",
-            "id": params.get('id'),
-            "result": {
-                "tools": available_tools
-            }
-        }
-    
-    async def _handle_call_tool(self, params):
-        """Handle MCP tools/call request."""
-        tool_name = params.get('name')
-        arguments = params.get('arguments', {})
+        @self.app.route("/", methods=["GET"])
+        def root():
+            """Root endpoint with server info."""
+            return jsonify({
+                "name": "OuiComply MCP Server (Official)",
+                "version": "1.0.0",
+                "protocol": "MCP",
+                "capabilities": {
+                    "tools": True,
+                    "resources": True,
+                    "prompts": True
+                },
+                "endpoints": {
+                    "health": "/health",
+                    "mcp": "/mcp",
+                    "mcp_sse": "/mcp/sse",
+                    "tools": "/tools",
+                    "resources": "/resources",
+                    "prompts": "/prompts",
+                    "call_tool": "/call_tool"
+                }
+            })
         
-        # Call the tool through the MCP server
+        @self.app.route("/tools", methods=["GET"])
+        def list_tools():
+            """List available tools."""
+            try:
+                # Get tools from MCP server
+                tools = [
+                    {
+                        "name": "analyze_document",
+                        "description": "Analyze a document for compliance issues using AI",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "document_content": {"type": "string", "description": "Document content to analyze"},
+                                "document_type": {"type": "string", "description": "Type of document (contract, policy, etc.)"},
+                                "frameworks": {"type": "array", "items": {"type": "string"}, "description": "Compliance frameworks to check"}
+                            },
+                            "required": ["document_content"]
+                        }
+                    },
+                    {
+                        "name": "update_memory",
+                        "description": "Update team memory with new compliance insights",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "team_id": {"type": "string", "description": "Team identifier"},
+                                "insight": {"type": "string", "description": "Compliance insight to store"},
+                                "category": {"type": "string", "description": "Category of insight"}
+                            },
+                            "required": ["team_id", "insight"]
+                        }
+                    },
+                    {
+                        "name": "get_compliance_status",
+                        "description": "Get current compliance status for a team",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "team_id": {"type": "string", "description": "Team identifier"},
+                                "framework": {"type": "string", "description": "Specific framework to check"}
+                            },
+                            "required": ["team_id"]
+                        }
+                    }
+                ]
+                return jsonify({"tools": tools})
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
+        @self.app.route("/resources", methods=["GET"])
+        def list_resources():
+            """List available resources."""
+            try:
+                resources = [
+                    {
+                        "name": "compliance_frameworks",
+                        "description": "Available compliance frameworks and their requirements",
+                        "mimeType": "application/json"
+                    },
+                    {
+                        "name": "team_memory",
+                        "description": "Team-specific compliance memory and insights",
+                        "mimeType": "application/json"
+                    }
+                ]
+                return jsonify({"resources": resources})
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
+        @self.app.route("/prompts", methods=["GET"])
+        def list_prompts():
+            """List available prompts."""
+            try:
+                prompts = [
+                    {
+                        "name": "compliance_analysis",
+                        "description": "Prompt template for compliance analysis",
+                        "arguments": [
+                            {"name": "document_type", "description": "Type of document to analyze", "required": True},
+                            {"name": "frameworks", "description": "Compliance frameworks to check", "required": False}
+                        ]
+                    }
+                ]
+                return jsonify({"prompts": prompts})
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
+        @self.app.route("/mcp", methods=["POST"])
+        def mcp_endpoint():
+            """MCP protocol endpoint for Le Chat integration."""
+            try:
+                data = request.get_json()
+                method = data.get("method")
+                params = data.get("params", {})
+                
+                if method == "initialize":
+                    return jsonify({
+                        "jsonrpc": "2.0",
+                        "id": data.get("id"),
+                        "result": {
+                            "protocolVersion": "2024-11-05",
+                            "capabilities": {
+                                "tools": {"listChanged": True},
+                                "resources": {"subscribe": True, "listChanged": True},
+                                "prompts": {"listChanged": True}
+                            },
+                            "serverInfo": {
+                                "name": "ouicomply-mcp",
+                                "version": "1.0.0"
+                            }
+                        }
+                    })
+                
+                elif method == "tools/list":
+                    tools = [
+                        {
+                            "name": "analyze_document",
+                            "description": "Analyze a document for compliance issues using AI",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "document_content": {"type": "string", "description": "Document content to analyze"},
+                                    "document_type": {"type": "string", "description": "Type of document (contract, policy, etc.)"},
+                                    "frameworks": {"type": "array", "items": {"type": "string"}, "description": "Compliance frameworks to check"}
+                                },
+                                "required": ["document_content"]
+                            }
+                        },
+                        {
+                            "name": "update_memory",
+                            "description": "Update team memory with new compliance insights",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "team_id": {"type": "string", "description": "Team identifier"},
+                                    "insight": {"type": "string", "description": "Compliance insight to store"},
+                                    "category": {"type": "string", "description": "Category of insight"}
+                                },
+                                "required": ["team_id", "insight"]
+                            }
+                        },
+                        {
+                            "name": "get_compliance_status",
+                            "description": "Get current compliance status for a team",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "team_id": {"type": "string", "description": "Team identifier"},
+                                    "framework": {"type": "string", "description": "Specific framework to check"}
+                                },
+                                "required": ["team_id"]
+                            }
+                        }
+                    ]
+                    return jsonify({
+                        "jsonrpc": "2.0",
+                        "id": data.get("id"),
+                        "result": {"tools": tools}
+                    })
+                
+                elif method == "tools/call":
+                    tool_name = params.get("name")
+                    arguments = params.get("arguments", {})
+                    
+                    if tool_name == "analyze_document":
+                        result = asyncio.run(self._analyze_document(arguments))
+                    elif tool_name == "update_memory":
+                        result = asyncio.run(self._update_memory(arguments))
+                    elif tool_name == "get_compliance_status":
+                        result = asyncio.run(self._get_compliance_status(arguments))
+                    else:
+                        return jsonify({
+                            "jsonrpc": "2.0",
+                            "id": data.get("id"),
+                            "error": {"code": -32601, "message": f"Unknown tool: {tool_name}"}
+                        })
+                    
+                    return jsonify({
+                        "jsonrpc": "2.0",
+                        "id": data.get("id"),
+                        "result": {
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": str(result)
+                                }
+                            ]
+                        }
+                    })
+                
+                else:
+                    return jsonify({
+                        "jsonrpc": "2.0",
+                        "id": data.get("id"),
+                        "error": {"code": -32601, "message": f"Method not found: {method}"}
+                    })
+                
+            except Exception as e:
+                return jsonify({
+                    "jsonrpc": "2.0",
+                    "id": data.get("id", "unknown"),
+                    "error": {"code": -32603, "message": str(e)}
+                })
+        
+        @self.app.route("/mcp/sse", methods=["GET"])
+        def mcp_sse_endpoint():
+            """Server-Sent Events endpoint for MCP."""
+            def generate():
+                import time
+                import json
+                from datetime import datetime
+                
+                # Send initial connection event
+                yield f"data: {json.dumps({'type': 'connected', 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                
+                # Keep connection alive and send periodic updates
+                while True:
+                    try:
+                        yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                        time.sleep(30)  # Send heartbeat every 30 seconds
+                    except GeneratorExit:
+                        break
+                    except Exception as e:
+                        yield f"data: {json.dumps({'type': 'error', 'error': str(e), 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                        break
+            
+            return Response(generate(), mimetype='text/event-stream')
+        
+        @self.app.route("/call_tool", methods=["POST"])
+        def call_tool():
+            """Call a tool with the given parameters."""
+            try:
+                data = request.get_json()
+                tool_name = data.get("name")
+                arguments = data.get("arguments", {})
+                
+                if not tool_name:
+                    return jsonify({"error": "Tool name is required"}), 400
+                
+                # Call the appropriate tool
+                if tool_name == "analyze_document":
+                    result = asyncio.run(self._analyze_document(arguments))
+                elif tool_name == "update_memory":
+                    result = asyncio.run(self._update_memory(arguments))
+                elif tool_name == "get_compliance_status":
+                    result = asyncio.run(self._get_compliance_status(arguments))
+                else:
+                    return jsonify({"error": f"Unknown tool: {tool_name}"}), 400
+                
+                return jsonify({
+                    "tool": tool_name,
+                    "result": result,
+                    "status": "success"
+                })
+                
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+    
+    async def _analyze_document(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze document for compliance."""
         try:
-            result = await self.mcp_server._handle_call_tool(tool_name, arguments)
+            document_content = arguments.get("document_content", "")
+            document_type = arguments.get("document_type", "contract")
+            frameworks = arguments.get("frameworks", ["gdpr", "sox"])
+            
+            # Use the compliance engine
+            report = await self.mcp_server.compliance_engine.analyze_document_compliance(
+                document_content=document_content,
+                document_type=document_type,
+                frameworks=frameworks
+            )
+            
             return {
-                "jsonrpc": "2.0",
-                "id": params.get('id'),
-                "result": {
-                    "content": [{"type": "text", "text": content.text} for content in result]
-                }
+                "report_id": report.report_id,
+                "status": report.overall_status.value,
+                "risk_level": report.risk_level.value,
+                "risk_score": report.risk_score,
+                "issues_count": len(report.issues),
+                "summary": report.summary
             }
         except Exception as e:
-            return {
-                "jsonrpc": "2.0",
-                "id": params.get('id'),
-                "error": {
-                    "code": -32603,
-                    "message": f"Tool execution failed: {str(e)}"
-                }
-            }
+            return {"error": str(e)}
     
-    async def _handle_list_resources(self, params):
-        """Handle MCP resources/list request."""
-        # Get resources from the MCP server
-        resources = []
-        for resource in self.mcp_server.server._resources.values():
-            resources.append({
-                "uri": resource.uri,
-                "name": resource.name,
-                "description": resource.description,
-                "mimeType": resource.mimeType
-            })
-        
-        return {
-            "jsonrpc": "2.0",
-            "id": params.get('id'),
-            "result": {
-                "resources": resources
-            }
-        }
-    
-    async def _handle_read_resource(self, params):
-        """Handle MCP resources/read request."""
-        uri = params.get('uri')
-        
+    async def _update_memory(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Update team memory."""
         try:
-            # Read resource through the MCP server
-            content = await self.mcp_server._handle_read_resource(uri)
+            team_id = arguments.get("team_id", "default")
+            insight = arguments.get("insight", "")
+            category = arguments.get("category", "general")
+            
+            # Use memory integration
+            result = await self.mcp_server.memory_integration.store_insight(
+                team_id=team_id,
+                insight=insight,
+                category=category
+            )
+            
             return {
-                "jsonrpc": "2.0",
-                "id": params.get('id'),
-                "result": {
-                    "contents": [{"type": "text", "text": content}]
-                }
+                "team_id": team_id,
+                "insight_stored": True,
+                "memory_id": result.get("memory_id", "unknown")
             }
         except Exception as e:
+            return {"error": str(e)}
+    
+    async def _get_compliance_status(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Get compliance status."""
+        try:
+            team_id = arguments.get("team_id", "default")
+            framework = arguments.get("framework", "all")
+            
+            # Use memory integration to get status
+            status = await self.mcp_server.memory_integration.get_team_status(team_id)
+            
             return {
-                "jsonrpc": "2.0",
-                "id": params.get('id'),
-                "error": {
-                    "code": -32603,
-                    "message": f"Resource read failed: {str(e)}"
-                }
+                "team_id": team_id,
+                "framework": framework,
+                "status": status.get("overall_status", "unknown"),
+                "last_updated": status.get("last_updated", "unknown")
             }
-
-
-# Create a simple HTTP server using aiohttp
-async def create_http_server():
-    """Create and configure the HTTP server."""
+        except Exception as e:
+            return {"error": str(e)}
     
-    mcp_server = MCPHTTPServer()
-    
-    async def mcp_handler(request):
-        """Handle MCP requests."""
-        # For GET requests, return server info instead of processing MCP protocol
-        if request.method == 'GET':
-            return web.json_response({
-                "server": "OuiComply MCP Server",
-                "version": mcp_server.config.server_version,
-                "endpoint": "/mcp",
-                "methods": ["POST", "GET"],
-                "protocol": "MCP over HTTP",
-                "authentication": "none"
-            })
+    def run(self, host="0.0.0.0", port=8000, debug=False):
+        """Run the HTTP server."""
+        print(f"🚀 Starting OuiComply MCP HTTP Server...")
+        print(f"📡 Health Check: http://localhost:{port}/health")
+        print(f"🔧 MCP Protocol: http://localhost:{port}/mcp")
+        print(f"📡 SSE Endpoint: http://localhost:{port}/mcp/sse")
+        print(f"🔧 Tools: http://localhost:{port}/tools")
+        print(f"📚 Resources: http://localhost:{port}/resources")
+        print(f"💬 Prompts: http://localhost:{port}/prompts")
+        print(f"⚡ Call Tool: http://localhost:{port}/call_tool")
         
-        # For POST requests, handle MCP protocol
-        response_data = await mcp_server.handle_mcp_request(request)
-        if isinstance(response_data, dict):
-            return web.json_response(response_data)
-        else:
-            return response_data
-    
-    async def health_handler(request):
-        """Handle health check requests."""
-        return web.json_response({
-            "status": "healthy",
-            "timestamp": datetime.now().isoformat(),
-            "server": mcp_server.config.server_name,
-            "version": mcp_server.config.server_version,
-            "authentication": "none"
-        })
-    
-    async def info_handler(request):
-        """Handle server info requests."""
-        return web.json_response({
-            "authentication_required": False,
-            "server": mcp_server.config.server_name,
-            "version": mcp_server.config.server_version,
-            "endpoints": {
-                "/mcp": "MCP protocol endpoint (POST/GET)",
-                "/ssc": "SSC compatible endpoint (POST/GET)",
-                "/health": "Health check endpoint",
-                "/info": "Server information endpoint"
-            }
-        })
-    
-    async def ssc_handler(request):
-        """Handle SSC requests (LeChat compatible)."""
-        # For GET requests, return server info
-        if request.method == 'GET':
-            return web.json_response({
-                "server": "OuiComply MCP Server (SSC Compatible)",
-                "version": mcp_server.config.server_version,
-                "endpoint": "/ssc",
-                "methods": ["POST", "GET"],
-                "protocol": "MCP over HTTP (SSC)",
-                "authentication": "none",
-                "lechat_compatible": True
-            })
-        
-        # For POST requests, handle MCP protocol (same as /mcp)
-        response_data = await mcp_server.handle_mcp_request(request)
-        if isinstance(response_data, dict):
-            return web.json_response(response_data)
-        else:
-            return response_data
-    
-    app = web.Application()
-    # MCP endpoints - LeChat looks for "mcp" in the URL
-    app.router.add_post('/mcp', mcp_handler)
-    app.router.add_post('/mcp/', mcp_handler)  # Alternative with trailing slash
-    app.router.add_get('/mcp', mcp_handler)    # GET support for health checks
-    app.router.add_get('/mcp/', mcp_handler)   # GET with trailing slash
-    
-    # SSC endpoints - Alternative naming for LeChat compatibility
-    app.router.add_post('/ssc', ssc_handler)
-    app.router.add_post('/ssc/', ssc_handler)
-    app.router.add_get('/ssc', ssc_handler)
-    app.router.add_get('/ssc/', ssc_handler)
-    
-    # Health and info endpoints
-    app.router.add_get('/health', health_handler)
-    app.router.add_get('/info', info_handler)
-    app.router.add_get('/', health_handler)
-    
-    return app
-
-
-async def main():
-    """Main entry point for HTTP MCP server."""
-    print("Starting OuiComply MCP HTTP Server for ALPIC...")
-    
-    # Validate configuration
-    if not validate_config():
-        logger.error("Configuration validation failed")
-        return
-    
-    # Print configuration summary
-    print_config_summary()
-    
-    # Create HTTP server
-    app = await create_http_server()
-    if app is None:
-        return
-    
-    # Get port from environment or use default
-    port = int(os.getenv('PORT', '8000'))
-    
-    # Start the server
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', port)
-    await site.start()
-    
-    print(f"MCP HTTP Server running on port {port}")
-    print(f"Health check: http://localhost:{port}/health")
-    print(f"Server info: http://localhost:{port}/info")
-    print(f"MCP endpoints: http://localhost:{port}/mcp (POST/GET)")
-    print(f"SSC endpoints: http://localhost:{port}/ssc (POST/GET) - LeChat compatible")
-    print(f"No authentication required - server is open for all requests")
-    print(f"LeChat will detect this as MCP server due to 'mcp'/'ssc' in URL")
-    
-    # Keep the server running
-    try:
-        await asyncio.Future()  # Run forever
-    except KeyboardInterrupt:
-        print("Server stopped by user")
-    finally:
-        await runner.cleanup()
-
+        self.app.run(host=host, port=port, debug=debug, use_reloader=False)
 
 if __name__ == "__main__":
-    import os
-    asyncio.run(main())
+    port = int(os.environ.get("PORT", 8000))
+    server = MCPHTTPServer()
+    server.run(port=port)

@@ -245,6 +245,107 @@ Once the ngrok server is running, use the provided URL in your ALPIC configurati
 
 For detailed ngrok setup instructions, see [NGROK_SETUP.md](NGROK_SETUP.md).
 
+## 🔌 API Endpoints
+
+The OuiComply MCP Server provides both MCP protocol endpoints and function-based routing for direct API access.
+
+### MCP Protocol Endpoints
+
+- **`POST /mcp`** - Main MCP protocol endpoint for LeChat integration
+- **`GET /mcp/sse`** - Server-Sent Events for real-time updates
+- **`GET /health`** - Health check endpoint
+- **`GET /`** - Server information and available endpoints
+
+### Function-Based Routing Endpoints
+
+The server now supports direct function calls through REST endpoints:
+
+#### 📄 Document Analysis
+```bash
+POST /mcp/analyze_document
+Content-Type: application/json
+
+{
+    "document_content": "Your document content here...",
+    "document_type": "contract",  # optional
+    "frameworks": ["gdpr", "sox"]  # optional
+}
+```
+
+**Response:**
+```json
+{
+    "function": "analyze_document",
+    "status": "success",
+    "result": {
+        "report_id": "report_123",
+        "status": "compliant",
+        "risk_level": "low",
+        "risk_score": 0.2,
+        "issues_count": 0,
+        "summary": "Document appears compliant with specified frameworks"
+    }
+}
+```
+
+#### 🧠 Memory Management
+```bash
+POST /mcp/update_memory
+Content-Type: application/json
+
+{
+    "team_id": "team_123",
+    "insight": "Compliance insight to store",
+    "category": "privacy"  # optional
+}
+```
+
+**Response:**
+```json
+{
+    "function": "update_memory",
+    "status": "success",
+    "result": {
+        "team_id": "team_123",
+        "insight_stored": true,
+        "memory_id": "memory_456"
+    }
+}
+```
+
+#### 📊 Compliance Status
+```bash
+POST /mcp/get_compliance_status
+Content-Type: application/json
+
+{
+    "team_id": "team_123",
+    "framework": "gdpr"  # optional
+}
+```
+
+**Response:**
+```json
+{
+    "function": "get_compliance_status",
+    "status": "success",
+    "result": {
+        "team_id": "team_123",
+        "framework": "gdpr",
+        "status": "compliant",
+        "last_updated": "2024-01-15T10:30:00Z"
+    }
+}
+```
+
+### Testing the API
+
+Use the provided test script to verify all endpoints:
+
+```bash
+python test_function_routing.py
+```
+
 ### Available Tools
 
 #### 1. Document Compliance Analysis
