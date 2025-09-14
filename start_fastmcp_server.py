@@ -19,6 +19,11 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from mcp_fastmcp_server import app
 import uvicorn
+import mcp
+
+# Alpic MCP Transport Detection Pattern
+# This pattern is specifically for Alpic deployment detection
+mcp.run(transport="streamable-http")
 
 def main():
     """Start the FastMCP server with Starlette."""

@@ -12,9 +12,9 @@ build:
 
 # Runtime configuration
 runtime:
-  command: "python start_fastmcp_server.py"
+  command: "python simple_mcp_server.py"
   port: 8000
-  health_check: "http://localhost:8001/health"
+  health_check: "http://localhost:8000/health"
 
 # Environment variables (set these in Alpic dashboard)
 environment:

@@ -25,6 +25,7 @@ try:
     from starlette.applications import Starlette
     from starlette.routing import Route, Mount
     from starlette.responses import JSONResponse
+    import mcp
 except ImportError:
     print("MCP not installed. Installing...")
     import subprocess
@@ -33,6 +34,7 @@ except ImportError:
     from starlette.applications import Starlette
     from starlette.routing import Route, Mount
     from starlette.responses import JSONResponse
+    import mcp
 
 from mcp_server import OuiComplyMCPServer
 from src.tools.document_ai import DocumentAnalysisRequest
@@ -516,8 +518,10 @@ def get_health_status():
 # FastMCP server is ready - tools and resources are registered
 
 
-if __name__ == "__main__":
-    # Run the FastMCP server
+# MCP Transport Detection for Alpic Deployment
+# This section ensures Alpic can detect the MCP transport type
+def run_mcp_server():
+    """Run MCP server with streamable HTTP transport for Alpic deployment."""
     import uvicorn
     uvicorn.run(
         "mcp_fastmcp_server:app",
@@ -526,3 +530,11 @@ if __name__ == "__main__":
         reload=True,
         log_level="info"
     )
+
+# Alpic MCP Transport Detection Pattern
+# This pattern is specifically for Alpic deployment detection
+mcp.run(transport="streamable-http")
+
+if __name__ == "__main__":
+    # Run the FastMCP server
+    run_mcp_server()
