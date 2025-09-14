@@ -9,47 +9,11 @@ Author: OuiComply Team
 Version: 1.0.0
 """
 
-# Lambda handler for direct invocation - ultra fast, before any imports
-def lambda_handler(event, context):
-    """Lambda handler for direct invocation."""
-    # Handle the specific payload format for oauth/metadata
-    if event.get("v20250806", {}).get("message", {}).get("method") == "oauth/metadata":
-        return {
-            "jsonrpc": "2.0",
-            "id": event["v20250806"]["message"].get("id", "unknown"),
-            "result": {
-                "oauth": {
-                    "version": "1.0.0",
-                    "server_name": "ouicomply-mcp",
-                    "capabilities": {
-                        "tools": True,
-                        "resources": True,
-                        "prompts": False,
-                        "logging": True
-                    },
-                    "status": "ready",
-                    "transport": "streamable-http"
-                }
-            }
-        }
-
-    # Default response
-    return {
-        "jsonrpc": "2.0",
-        "id": "unknown",
-        "error": {"code": -32601, "message": "Method not found"}
-    }
-
-import asyncio
-import json
 import logging
 import os
 import sys
 from datetime import datetime, UTC
 from pathlib import Path
-
-# Add src directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -59,6 +23,10 @@ if __name__ == "__main__":
     # Import Flask and other web-server-related modules here
     # to avoid loading them during the Lambda invocation check.
     from flask import Flask, request, jsonify
+
+    # Add src directory to path for imports only when running the server
+    # This avoids path manipulation during the Lambda check
+    sys.path.insert(0, str(Path(__file__).parent / "src"))
 
     # Create Flask application
     app = Flask(__name__)
