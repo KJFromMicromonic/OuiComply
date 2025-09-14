@@ -12,7 +12,7 @@ build:
 
 # Runtime configuration
 runtime:
-  command: "python simple_mcp_rest_server.py"
+  command: "python lechat_mcp_server.py"
   port: 8000
   health_check: "http://localhost:8000/health"
 

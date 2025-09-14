@@ -37,3 +37,5 @@ asyncio-mqtt>=0.16.0
 # Web server (for health checks)
 uvicorn>=0.24.0
 fastapi>=0.104.0
+flask>=2.3.0
+flask-cors>=4.0.0
