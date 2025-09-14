@@ -2,14 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "vercel_mcp_server.py",
+      "src": "vercel_minimal.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "vercel_mcp_server.py"
+      "dest": "vercel_minimal.py"
     }
   ],
   "env": {
