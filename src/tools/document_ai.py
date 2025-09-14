@@ -64,6 +64,7 @@ class ComplianceIssue(BaseModel):
         recommendation: Suggested mitigation action
         framework: Which compliance framework this relates to
         confidence: AI confidence score (0.0-1.0)
+        type: Type of issue (clause_missing, risk_indicator, compliance_gap)
     """
     issue_id: str
     severity: str
@@ -73,6 +74,7 @@ class ComplianceIssue(BaseModel):
     recommendation: str
     framework: str
     confidence: float = Field(ge=0.0, le=1.0)
+    type: str = Field(default="compliance_gap", description="Type of compliance issue")
 
 
 class DocumentAnalysisResult(BaseModel):
@@ -228,17 +230,67 @@ class DocumentAIService:
                 request.analysis_depth
             )
             
-            # Generate structured result
-            result = DocumentAnalysisResult(
-                document_id=document_id,
-                document_type=document_type,
-                analysis_timestamp=datetime.utcnow().isoformat(),
-                compliance_issues=analysis_result["issues"],
-                risk_score=analysis_result["risk_score"],
-                missing_clauses=analysis_result["missing_clauses"],
-                recommendations=analysis_result["recommendations"],
-                metadata=analysis_result["metadata"]
-            )
+            # Handle both old and new structured response formats
+            if "compliance_issues" in analysis_result:
+                # New structured format
+                issues = []
+                for issue_data in analysis_result.get("compliance_issues", []):
+                    # Ensure all required fields are present
+                    if isinstance(issue_data, dict):
+                        issue_data.setdefault("category", "compliance_gap")
+                        issue_data.setdefault("confidence", 0.8)
+                        issue_data.setdefault("type", "compliance_gap")
+                        issue_data.setdefault("location", "Not specified")
+                        issue_data.setdefault("framework", "general")
+                        issues.append(ComplianceIssue(**issue_data))
+                    else:
+                        # Already a ComplianceIssue object
+                        issues.append(issue_data)
+                
+                result = DocumentAnalysisResult(
+                    document_id=document_id,
+                    document_type=document_type,
+                    analysis_timestamp=datetime.utcnow().isoformat(),
+                    compliance_issues=issues,
+                    risk_score=analysis_result.get("executive_summary", {}).get("compliance_score", 0.5),
+                    missing_clauses=analysis_result.get("missing_clauses", []),
+                    recommendations=analysis_result.get("recommendations", []),
+                    metadata={
+                        "frameworks_analyzed": analysis_result.get("detailed_analysis", {}).get("frameworks_analyzed", []),
+                        "total_issues": analysis_result.get("detailed_analysis", {}).get("total_issues", len(issues)),
+                        "analysis_depth": "comprehensive",
+                        "structured_response": True
+                    }
+                )
+            else:
+                # Old format (fallback)
+                issues = []
+                for issue_data in analysis_result.get("issues", []):
+                    if isinstance(issue_data, dict):
+                        issue_data.setdefault("category", "compliance_gap")
+                        issue_data.setdefault("confidence", 0.8)
+                        issue_data.setdefault("type", "compliance_gap")
+                        issue_data.setdefault("location", "Not specified")
+                        issue_data.setdefault("framework", "general")
+                        issues.append(ComplianceIssue(**issue_data))
+                    else:
+                        # Already a ComplianceIssue object
+                        issues.append(issue_data)
+                
+                result = DocumentAnalysisResult(
+                    document_id=document_id,
+                    document_type=document_type,
+                    analysis_timestamp=datetime.utcnow().isoformat(),
+                    compliance_issues=issues,
+                    risk_score=analysis_result.get("risk_score", 0.5),
+                    missing_clauses=analysis_result.get("missing_clauses", []),
+                    recommendations=analysis_result.get("recommendations", []),
+                    metadata=analysis_result.get("metadata", {
+                        "frameworks_analyzed": [],
+                        "total_issues": len(issues),
+                        "analysis_depth": "comprehensive"
+                    })
+                )
             
             logger.info(f"Document analysis completed - document_id: {document_id}, issues_found: {len(result.compliance_issues)}, risk_score: {result.risk_score}")
             
@@ -395,16 +447,78 @@ class DocumentAIService:
             # Process the response
             if response.choices[0].message.tool_calls:
                 tool_call = response.choices[0].message.tool_calls[0]
-                analysis_result = json.loads(tool_call.function.arguments)
                 
-                # Convert to our expected format
+                # Parse JSON with better error handling
+                try:
+                    analysis_result = json.loads(tool_call.function.arguments)
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON parsing failed: {str(e)}")
+                    logger.error(f"Raw arguments: {tool_call.function.arguments[:500]}...")
+                    # Try to fix common JSON issues
+                    try:
+                        # Remove extra data after the main JSON object
+                        json_str = tool_call.function.arguments
+                        if '}' in json_str:
+                            # Find the last complete JSON object
+                            last_brace = json_str.rfind('}')
+                            json_str = json_str[:last_brace + 1]
+                        analysis_result = json.loads(json_str)
+                    except json.JSONDecodeError:
+                        logger.error("Failed to fix JSON, using fallback")
+                        return self._generate_mock_analysis("", frameworks[0] if frameworks else "gdpr")
+                
+                # Convert to our expected format with better error handling
                 issues = []
                 for issue_data in analysis_result.get("compliance_issues", []):
-                    issue = ComplianceIssue(**issue_data)
-                    issues.append(issue)
+                    try:
+                        # Ensure all required fields are present
+                        if isinstance(issue_data, dict):
+                            issue_data.setdefault("category", "compliance_gap")
+                            issue_data.setdefault("confidence", 0.8)
+                            issue_data.setdefault("type", "compliance_gap")
+                            issue_data.setdefault("location", "Not specified")
+                            issue_data.setdefault("framework", "general")
+                            issue = ComplianceIssue(**issue_data)
+                            issues.append(issue)
+                        else:
+                            # Already a ComplianceIssue object
+                            issues.append(issue_data)
+                    except Exception as e:
+                        logger.error(f"Failed to create ComplianceIssue: {str(e)}")
+                        logger.error(f"Issue data: {issue_data}")
+                        # Create a fallback issue
+                        fallback_issue = ComplianceIssue(
+                            issue_id=f"fallback_{len(issues)}",
+                            severity="medium",
+                            category="compliance_gap",
+                            description="Analysis error - manual review required",
+                            recommendation="Review document manually for compliance issues",
+                            framework="general",
+                            confidence=0.5,
+                            type="compliance_gap"
+                        )
+                        issues.append(fallback_issue)
+                
+                # Convert ComplianceIssue objects to dictionaries for consistency
+                issues_dict = []
+                for issue in issues:
+                    if isinstance(issue, ComplianceIssue):
+                        issues_dict.append({
+                            "issue_id": issue.issue_id,
+                            "severity": issue.severity,
+                            "category": issue.category,
+                            "description": issue.description,
+                            "location": issue.location,
+                            "recommendation": issue.recommendation,
+                            "framework": issue.framework,
+                            "confidence": issue.confidence,
+                            "type": issue.type
+                        })
+                    else:
+                        issues_dict.append(issue)
                 
                 return {
-                    "issues": issues,
+                    "issues": issues_dict,
                     "missing_clauses": analysis_result.get("missing_clauses", []),
                     "recommendations": analysis_result.get("recommendations", []),
                     "sections": analysis_result.get("sections", []),
@@ -413,7 +527,7 @@ class DocumentAIService:
                     "metadata": {
                         "frameworks_analyzed": frameworks,
                         "analysis_depth": depth,
-                        "total_issues": len(issues),
+                        "total_issues": len(issues_dict),
                         "total_sections": len(analysis_result.get("sections", []))
                     }
                 }
@@ -504,6 +618,133 @@ class DocumentAIService:
             List of tool definitions
         """
         return [
+            {
+                "type": "function",
+                "function": {
+                    "name": "comprehensive_compliance_analysis",
+                    "description": "Perform comprehensive compliance analysis with structured output including LeChat actions",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "executive_summary": {
+                                "type": "object",
+                                "properties": {
+                                    "overall_status": {"type": "string", "enum": ["compliant", "partially_compliant", "non_compliant", "requires_review"]},
+                                    "risk_level": {"type": "string", "enum": ["low", "medium", "high", "critical"]},
+                                    "compliance_score": {"type": "number", "minimum": 0, "maximum": 1},
+                                    "key_findings": {"type": "array", "items": {"type": "string"}},
+                                    "immediate_actions_required": {"type": "integer", "minimum": 0},
+                                    "estimated_remediation_time": {"type": "string"}
+                                },
+                                "required": ["overall_status", "risk_level", "compliance_score", "key_findings", "immediate_actions_required", "estimated_remediation_time"]
+                            },
+                            "compliance_issues": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "issue_id": {"type": "string"},
+                                        "type": {"type": "string", "enum": ["missing_clause", "risk_indicator", "compliance_gap", "legal_requirement"]},
+                                        "severity": {"type": "string", "enum": ["low", "medium", "high", "critical"]},
+                                        "framework": {"type": "string"},
+                                        "title": {"type": "string"},
+                                        "description": {"type": "string"},
+                                        "location": {"type": "string"},
+                                        "impact": {"type": "string"},
+                                        "recommendation": {"type": "string"},
+                                        "implementation_priority": {"type": "string", "enum": ["immediate", "short_term", "medium_term", "long_term"]},
+                                        "estimated_effort": {"type": "string"},
+                                        "responsible_party": {"type": "string"},
+                                        "due_date": {"type": "string"},
+                                        "related_clauses": {"type": "array", "items": {"type": "string"}},
+                                        "legal_precedent": {"type": "string"},
+                                        "compliance_requirements": {"type": "array", "items": {"type": "string"}}
+                                    },
+                                    "required": ["issue_id", "type", "severity", "framework", "title", "description", "recommendation", "implementation_priority", "responsible_party"]
+                                }
+                            },
+                            "lechat_actions": {
+                                "type": "object",
+                                "properties": {
+                                    "github_issues": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "title": {"type": "string"},
+                                                "body": {"type": "string"},
+                                                "assignee": {"type": "string"},
+                                                "labels": {"type": "array", "items": {"type": "string"}},
+                                                "milestone": {"type": "string"},
+                                                "priority": {"type": "string", "enum": ["low", "medium", "high", "critical"]}
+                                            }
+                                        }
+                                    },
+                                    "linear_tasks": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "title": {"type": "string"},
+                                                "description": {"type": "string"},
+                                                "team": {"type": "string"},
+                                                "priority": {"type": "string"},
+                                                "labels": {"type": "array", "items": {"type": "string"}},
+                                                "due_date": {"type": "string"}
+                                            }
+                                        }
+                                    },
+                                    "slack_notifications": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "channel": {"type": "string"},
+                                                "message": {"type": "string"}
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "compliance_metrics": {
+                                "type": "object",
+                                "properties": {
+                                    "overall_score": {"type": "number", "minimum": 0, "maximum": 1},
+                                    "gdpr_compliance": {"type": "number", "minimum": 0, "maximum": 1},
+                                    "ccpa_compliance": {"type": "number", "minimum": 0, "maximum": 1},
+                                    "sox_compliance": {"type": "number", "minimum": 0, "maximum": 1},
+                                    "trend": {"type": "string", "enum": ["improving", "stable", "declining"]},
+                                    "last_audit": {"type": "string"},
+                                    "next_review": {"type": "string"}
+                                }
+                            },
+                            "risk_assessment": {
+                                "type": "object",
+                                "properties": {
+                                    "financial_risk": {
+                                        "type": "object",
+                                        "properties": {
+                                            "gdpr_fines": {"type": "string"},
+                                            "ccpa_fines": {"type": "string"},
+                                            "reputation_damage": {"type": "string"},
+                                            "business_impact": {"type": "string"}
+                                        }
+                                    },
+                                    "operational_risk": {
+                                        "type": "object",
+                                        "properties": {
+                                            "data_breach_probability": {"type": "string"},
+                                            "regulatory_investigation": {"type": "string"},
+                                            "contract_termination": {"type": "string"}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "required": ["executive_summary", "compliance_issues", "lechat_actions", "compliance_metrics"]
+                    }
+                }
+            },
             {
                 "type": "function",
                 "function": {
@@ -634,6 +875,8 @@ class DocumentAIService:
         5. Actionable recommendations
         6. Overall compliance status assessment
         
+        IMPORTANT: Ensure your JSON response is properly formatted and complete. Do not include any text outside the JSON structure. Make sure all strings are properly escaped and all brackets are closed.
+        
         Be thorough and specific in your analysis. Focus on structured output with clear issue identification.
         """
     
@@ -703,7 +946,8 @@ class DocumentAIService:
                     "location": "Privacy Policy Section 2",
                     "recommendation": "Add clear consent checkboxes and opt-in mechanisms",
                     "framework": framework,
-                    "confidence": 0.85
+                    "confidence": 0.85,
+                    "type": "clause_missing"
                 },
                 {
                     "issue_id": f"gdpr_002", 
@@ -713,7 +957,8 @@ class DocumentAIService:
                     "location": "Data Handling Section",
                     "recommendation": "Specify exact retention periods for different data types",
                     "framework": framework,
-                    "confidence": 0.75
+                    "confidence": 0.75,
+                    "type": "risk_indicator"
                 }
             ],
             "ccpa": [
@@ -725,7 +970,8 @@ class DocumentAIService:
                     "location": "Consumer Rights Section",
                     "recommendation": "Add clear deletion request process and contact information",
                     "framework": framework,
-                    "confidence": 0.90
+                    "confidence": 0.90,
+                    "type": "clause_missing"
                 }
             ],
             "sox": [
@@ -737,7 +983,8 @@ class DocumentAIService:
                     "location": "Financial Controls Section",
                     "recommendation": "Implement comprehensive internal control documentation",
                     "framework": framework,
-                    "confidence": 0.95
+                    "confidence": 0.95,
+                    "type": "compliance_gap"
                 }
             ]
         }
@@ -794,7 +1041,8 @@ class DocumentAIService:
             location="Document analysis",
             recommendation="Manual review required",
             framework=framework,
-            confidence=0.5
+            confidence=0.5,
+            type="compliance_gap"
         )
         
         return {

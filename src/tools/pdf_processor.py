@@ -85,6 +85,41 @@ class PDFProcessor:
         self.config = get_config()
         self.client = Mistral(api_key=self.config.mistral_api_key)
         self.base_url = "https://api.mistral.ai/v1"
+    
+    def extract_text(self, pdf_path: Union[str, Path]) -> str:
+        """
+        Extract text from a PDF file using basic text extraction.
+        
+        Args:
+            pdf_path: Path to the PDF file
+            
+        Returns:
+            Extracted text content
+        """
+        try:
+            import PyPDF2
+            import io
+            
+            pdf_path = Path(pdf_path)
+            if not pdf_path.exists():
+                raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+            
+            with open(pdf_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                text = ""
+                
+                for page_num in range(len(pdf_reader.pages)):
+                    page = pdf_reader.pages[page_num]
+                    text += page.extract_text() + "\n"
+                
+                return text.strip()
+                
+        except ImportError:
+            # Fallback: return a placeholder if PyPDF2 is not available
+            return f"PDF text extraction not available. File: {pdf_path.name}"
+        except Exception as e:
+            logger.error(f"Error extracting text from PDF: {e}")
+            return f"Error extracting text from PDF: {str(e)}"
         
     async def process_pdf_step_by_step(self, pdf_path: Union[str, Path]) -> Dict[str, Any]:
         """

@@ -192,8 +192,7 @@ class MemoryIntegration:
                 result = await self.store_memory_via_lechat(
                     team_id=team_id,
                     memory_type="insight",
-                    content=insight,
-                    metadata={"category": category}
+                    memory_data={"content": insight, "metadata": {"category": category}}
                 )
                 return {
                     "memory_id": result.get("memory_id", f"insight_{team_id}_{datetime.utcnow().timestamp()}"),
@@ -591,8 +590,18 @@ class MemoryIntegration:
             logger.info(f"Memory stored via Le Chat MCP: {memory_key}")
             logger.debug(f"Memory data: {formatted_data}")
             
+            # Return the memory data for consistency
+            return {
+                "memory_id": memory_key,
+                "team_id": team_id,
+                "memory_type": memory_type,
+                "data": memory_data,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
         except Exception as e:
             logger.error(f"Failed to store memory via Le Chat MCP: {e}")
+            return None
     
     async def retrieve_memory_via_lechat(
         self, 

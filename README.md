@@ -1,6 +1,17 @@
 # OuiComply - AI-Assisted Legal Compliance Checker
 
-OuiComply is a comprehensive AI-powered legal compliance checking system that leverages Mistral's LeChat as the frontend, Mistral DocumentAI for intelligent document parsing, and a custom MCP (Model Context Protocol) server for advanced compliance analysis.
+OuiComply is a comprehensive AI-powered legal compliance checking system that leverages Mistral's DocumentAI for intelligent document parsing and a custom MCP (Model Context Protocol) server with FastMCP REST API for advanced compliance analysis.
+
+## 🎯 **Clean Project Structure**
+
+This project has been optimized to contain only essential files:
+- **Core MCP Server**: `mcp_server.py` + `mcp_fastmcp_server.py`
+- **Source Code**: Complete `src/` directory with all tools
+- **REST API**: FastMCP implementation for easy integration
+- **Documentation**: Essential guides and implementation docs
+- **Testing**: Focused test suites for core functionality
+
+See `PROJECT_STRUCTURE.md` for detailed file organization.
 
 ## 🚀 Features
 
