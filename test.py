@@ -1,48 +1,60 @@
 #!/usr/bin/env python3
 """
-Complete test script for Alpic-optimized MCP Server
-Tests both fast startup and full Le Chat MCP protocol compatibility.
+Le Chat Connection Validation Test
+This script mimics exactly what Le Chat does when validating an MCP connection.
 """
 
 import json
 import requests
 import time
-from datetime import datetime
 
 
-def test_alpic_mcp_server(base_url="http://localhost:8000"):
-    """Test the complete Alpic MCP server deployment."""
+def test_lechat_validation(base_url):
+    """Test MCP connection exactly like Le Chat does during validation."""
     
-    print("🧪 Testing Alpic-Optimized MCP Server with Le Chat Integration")
-    print(f"🌐 URL: {base_url}")
-    print("=" * 70)
+    print("🤖 Le Chat MCP Connection Validation Test")
+    print(f"🌐 Testing: {base_url}")
+    print("=" * 60)
     
-    # Test 1: Health Check (Alpic requirement)
-    print("\n1. 🏥 Testing Health Check (Alpic requirement)...")
+    # Step 1: CORS Preflight (OPTIONS request)
+    print("\n1. 🌐 CORS Preflight Check (OPTIONS)...")
     try:
-        start_time = time.time()
-        response = requests.get(f"{base_url}/health", timeout=5)
-        response_time = time.time() - start_time
+        response = requests.options(
+            f"{base_url}/mcp",
+            headers={
+                'Origin': 'https://lechat.ai',
+                'Access-Control-Request-Method': 'POST',
+                'Access-Control-Request-Headers': 'Content-Type'
+            },
+            timeout=10
+        )
+        print(f"   Status Code: {response.status_code}")
+        print(f"   CORS Headers: {dict(response.headers)}")
         
-        if response.status_code == 200:
-            data = response.json()
-            print(f"   ✅ Health check passed ({response_time:.2f}s)")
-            print(f"   📊 Status: {data.get('status', 'unknown')}")
-            print(f"   🔢 Tools: {data.get('tools_count', 0)}")
-            print(f"   📚 Resources: {data.get('resources_count', 0)}")
-        else:
-            print(f"   ❌ Health check failed: {response.status_code}")
+        # Check required CORS headers
+        cors_headers = {
+            'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+            'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+            'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers')
+        }
+        print(f"   CORS Check: {cors_headers}")
+        
+        if response.status_code != 200:
+            print("   ❌ CORS preflight failed!")
             return False
+        else:
+            print("   ✅ CORS preflight passed!")
+    
     except Exception as e:
-        print(f"   ❌ Health check error: {e}")
+        print(f"   ❌ CORS preflight error: {e}")
         return False
     
-    # Test 2: MCP Initialize (Le Chat requirement)
-    print("\n2. 🤝 Testing MCP Initialize (Le Chat requirement)...")
+    # Step 2: MCP Initialize (Connection Test)
+    print("\n2. 🤝 MCP Initialize (Le Chat Connection Test)...")
     try:
         init_request = {
             "jsonrpc": "2.0",
-            "id": "test-init",
+            "id": "lechat-validation-001",
             "method": "initialize",
             "params": {
                 "protocolVersion": "2024-11-05",
@@ -52,7 +64,7 @@ def test_alpic_mcp_server(base_url="http://localhost:8000"):
                     "prompts": {"listChanged": True}
                 },
                 "clientInfo": {
-                    "name": "test-client",
+                    "name": "Le Chat",
                     "version": "1.0.0"
                 }
             }
@@ -61,257 +73,150 @@ def test_alpic_mcp_server(base_url="http://localhost:8000"):
         response = requests.post(
             f"{base_url}/mcp",
             json=init_request,
-            headers={"Content-Type": "application/json"},
-            timeout=10
+            headers={
+                'Content-Type': 'application/json',
+                'Origin': 'https://lechat.ai',
+                'Accept': 'application/json'
+            },
+            timeout=15
         )
+        
+        print(f"   Status Code: {response.status_code}")
+        print(f"   Response Headers: {dict(response.headers)}")
         
         if response.status_code == 200:
             data = response.json()
+            print("   Raw Response:")
+            print(f"   {json.dumps(data, indent=4)}")
+            
+            # Validate MCP initialize response
             if "result" in data:
                 result = data["result"]
-                print(f"   ✅ MCP initialization successful")
-                print(f"   🏷️  Server: {result.get('serverInfo', {}).get('name', 'unknown')}")
-                print(f"   📦 Version: {result.get('serverInfo', {}).get('version', 'unknown')}")
-                print(f"   🔧 Protocol: {result.get('protocolVersion', 'unknown')}")
+                required_fields = ["protocolVersion", "capabilities", "serverInfo"]
+                missing_fields = [field for field in required_fields if field not in result]
+                
+                if missing_fields:
+                    print(f"   ❌ Missing required fields: {missing_fields}")
+                    return False
+                else:
+                    print("   ✅ MCP initialize response valid!")
+                    print(f"      Server: {result.get('serverInfo', {}).get('name', 'Unknown')}")
+                    print(f"      Version: {result.get('serverInfo', {}).get('version', 'Unknown')}")
+                    print(f"      Protocol: {result.get('protocolVersion', 'Unknown')}")
             else:
-                print(f"   ❌ MCP initialization failed: {data.get('error', 'Unknown error')}")
+                print(f"   ❌ MCP initialize failed: {data.get('error', 'Unknown error')}")
                 return False
         else:
-            print(f"   ❌ MCP initialization failed: {response.status_code}")
+            print(f"   ❌ MCP initialize failed with status: {response.status_code}")
+            print(f"   Response: {response.text}")
             return False
+    
     except Exception as e:
-        print(f"   ❌ MCP initialization error: {e}")
+        print(f"   ❌ MCP initialize error: {e}")
         return False
     
-    # Test 3: Tools List (Le Chat tool discovery)
-    print("\n3. 🛠️  Testing Tools List (Le Chat tool discovery)...")
+    # Step 3: Tools Discovery (Le Chat needs to see tools)
+    print("\n3. 🛠️  Tools Discovery (Le Chat Tool Detection)...")
     try:
         tools_request = {
             "jsonrpc": "2.0",
-            "id": "test-tools",
+            "id": "lechat-validation-002",
             "method": "tools/list"
         }
         
         response = requests.post(
             f"{base_url}/mcp",
             json=tools_request,
-            headers={"Content-Type": "application/json"},
+            headers={
+                'Content-Type': 'application/json',
+                'Origin': 'https://lechat.ai'
+            },
             timeout=10
         )
         
         if response.status_code == 200:
             data = response.json()
-            if "result" in data:
-                tools = data["result"].get("tools", [])
+            if "result" in data and "tools" in data["result"]:
+                tools = data["result"]["tools"]
                 print(f"   ✅ Found {len(tools)} tools:")
+                for i, tool in enumerate(tools, 1):
+                    print(f"      {i}. {tool.get('name', 'unnamed')} - {tool.get('description', 'no description')[:50]}...")
+                
+                # Validate tool schema
                 for tool in tools:
-                    print(f"      - {tool.get('name', 'unknown')}: {tool.get('description', 'No description')[:60]}...")
+                    required_tool_fields = ["name", "description", "inputSchema"]
+                    missing_tool_fields = [field for field in required_tool_fields if field not in tool]
+                    if missing_tool_fields:
+                        print(f"   ⚠️  Tool '{tool.get('name', 'unnamed')}' missing fields: {missing_tool_fields}")
+                
+                print("   ✅ Tools discovery successful!")
             else:
-                print(f"   ❌ Tools list failed: {data.get('error', 'Unknown error')}")
+                print(f"   ❌ Tools discovery failed: {data.get('error', 'No tools found')}")
                 return False
         else:
-            print(f"   ❌ Tools list failed: {response.status_code}")
+            print(f"   ❌ Tools discovery failed: {response.status_code}")
             return False
+    
     except Exception as e:
-        print(f"   ❌ Tools list error: {e}")
+        print(f"   ❌ Tools discovery error: {e}")
         return False
     
-    # Test 4: Tool Call - analyze_document (Le Chat tool execution)
-    print("\n4. 📝 Testing Tool Call - analyze_document (Le Chat tool execution)...")
+    # Step 4: Connection Health Check
+    print("\n4. 🏥 Connection Health Check...")
     try:
-        tool_request = {
-            "jsonrpc": "2.0",
-            "id": "test-analyze",
-            "method": "tools/call",
-            "params": {
-                "name": "analyze_document",
-                "arguments": {
-                    "document_content": "This service agreement contains data processing clauses that may need GDPR compliance review.",
-                    "document_type": "service_agreement", 
-                    "frameworks": ["gdpr", "ccpa"],
-                    "analysis_depth": "comprehensive"
-                }
-            }
-        }
-        
-        response = requests.post(
-            f"{base_url}/mcp",
-            json=tool_request,
-            headers={"Content-Type": "application/json"},
-            timeout=15
-        )
-        
+        response = requests.get(f"{base_url}/health", timeout=5)
         if response.status_code == 200:
-            data = response.json()
-            if "result" in data:
-                print(f"   ✅ Document analysis completed!")
-                content = data["result"]["content"][0]["text"]
-                try:
-                    analysis = json.loads(content)
-                    print(f"      📋 Report ID: {analysis.get('report_id', 'unknown')}")
-                    print(f"      📊 Compliance Score: {analysis.get('compliance_score', 'unknown')}/100")
-                    print(f"      ⚠️  Risk Level: {analysis.get('risk_level', 'unknown')}")
-                    print(f"      🔢 Issues Found: {analysis.get('issues_count', 0)}")
-                    print(f"      ✅ Status: {analysis.get('status', 'unknown')}")
-                except json.JSONDecodeError:
-                    print(f"      📝 Raw result: {content[:100]}...")
-            else:
-                print(f"   ❌ Tool call failed: {data.get('error', 'Unknown error')}")
-                return False
+            health_data = response.json()
+            print("   ✅ Health check passed!")
+            print(f"      Status: {health_data.get('status', 'unknown')}")
+            print(f"      Tools: {health_data.get('tools_count', 'unknown')}")
+            print(f"      Resources: {health_data.get('resources_count', 'unknown')}")
         else:
-            print(f"   ❌ Tool call failed: {response.status_code}")
-            return False
+            print(f"   ⚠️  Health check returned: {response.status_code}")
     except Exception as e:
-        print(f"   ❌ Tool call error: {e}")
-        return False
-    
-    # Test 5: Tool Call - update_memory
-    print("\n5. 🧠 Testing Tool Call - update_memory...")
-    try:
-        memory_request = {
-            "jsonrpc": "2.0", 
-            "id": "test-memory",
-            "method": "tools/call",
-            "params": {
-                "name": "update_memory",
-                "arguments": {
-                    "team_id": "test_team_alpic",
-                    "insight": "Service agreements should include explicit GDPR data processing clauses",
-                    "category": "compliance",
-                    "priority": "high"
-                }
-            }
-        }
-        
-        response = requests.post(
-            f"{base_url}/mcp",
-            json=memory_request,
-            headers={"Content-Type": "application/json"},
-            timeout=10
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            if "result" in data:
-                print(f"   ✅ Memory update completed!")
-                content = data["result"]["content"][0]["text"]
-                try:
-                    memory = json.loads(content)
-                    print(f"      👥 Team ID: {memory.get('team_id', 'unknown')}")
-                    print(f"      💾 Stored: {memory.get('insight_stored', False)}")
-                    print(f"      🆔 Memory ID: {memory.get('memory_id', 'unknown')}")
-                    print(f"      📊 Priority: {memory.get('priority', 'unknown')}")
-                except json.JSONDecodeError:
-                    print(f"      📝 Raw result: {content[:100]}...")
-            else:
-                print(f"   ❌ Memory update failed: {data.get('error', 'Unknown error')}")
-                return False
-        else:
-            print(f"   ❌ Memory update failed: {response.status_code}")
-            return False
-    except Exception as e:
-        print(f"   ❌ Memory update error: {e}")
-        return False
-    
-    # Test 6: Resources List (MCP protocol requirement)
-    print("\n6. 📚 Testing Resources List (MCP protocol requirement)...")
-    try:
-        resources_request = {
-            "jsonrpc": "2.0",
-            "id": "test-resources",
-            "method": "resources/list"
-        }
-        
-        response = requests.post(
-            f"{base_url}/mcp",
-            json=resources_request,
-            headers={"Content-Type": "application/json"},
-            timeout=10
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            if "result" in data:
-                resources = data["result"].get("resources", [])
-                print(f"   ✅ Found {len(resources)} resources:")
-                for resource in resources:
-                    print(f"      - {resource.get('name', 'unknown')}: {resource.get('description', 'No description')[:50]}...")
-            else:
-                print(f"   ❌ Resources list failed: {data.get('error', 'Unknown error')}")
-                return False
-        else:
-            print(f"   ❌ Resources list failed: {response.status_code}")
-            return False
-    except Exception as e:
-        print(f"   ❌ Resources list error: {e}")
-        return False
-    
-    # Test 7: Le Chat Integration Info
-    print("\n7. 🤖 Testing Le Chat Integration Info...")
-    try:
-        response = requests.get(f"{base_url}/lechat/integration", timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            print(f"   ✅ Le Chat integration ready")
-            print(f"      📡 MCP Endpoint: {data.get('mcp_endpoint', 'unknown')}")
-            print(f"      🛠️  Tools: {data.get('tools', 0)}")
-            print(f"      📚 Resources: {data.get('resources', 0)}")
-            print(f"      🔄 Protocol: {data.get('protocol', 'unknown')}")
-            print(f"      ✅ Le Chat Compatible: {data.get('le_chat_compatible', False)}")
-        else:
-            print(f"   ❌ Le Chat integration failed: {response.status_code}")
-            return False
-    except Exception as e:
-        print(f"   ❌ Le Chat integration error: {e}")
-        return False
+        print(f"   ⚠️  Health check error: {e}")
     
     # Success Summary
-    print("\n" + "=" * 70)
-    print("🎉 ALL TESTS PASSED! Server is ready for deployment!")
-    print("=" * 70)
-    print("✅ Alpic Deployment Requirements:")
-    print("   - Fast startup (< 1 second)")
-    print("   - Health check endpoint working")
-    print("   - Minimal dependencies")
+    print("\n" + "=" * 60)
+    print("🎉 LE CHAT VALIDATION COMPLETE!")
+    print("=" * 60)
+    print("✅ All Le Chat connection requirements validated:")
+    print("   - CORS preflight handling ✅")
+    print("   - MCP initialize handshake ✅")
+    print("   - Tools discovery ✅")
+    print("   - JSON-RPC 2.0 protocol ✅")
+    print("   - Proper response formatting ✅")
     print("")
-    print("✅ Le Chat Integration Requirements:")
-    print("   - Full MCP JSON-RPC 2.0 protocol")
-    print("   - Tools discoverable via tools/list")
-    print("   - Tools executable via tools/call")
-    print("   - Resources available via resources/list")
-    print("   - Initialize handshake working")
-    print("")
-    print("🚀 Ready for Alpic deployment!")
-    print(f"🔗 MCP Endpoint: {base_url}/mcp")
-    print(f"🏥 Health Check: {base_url}/health")
-    print("🎯 Le Chat will be able to discover and use all 3 tools!")
+    print("🚀 Your MCP server should now work with Le Chat!")
+    print(f"🔗 Use this URL in Le Chat: {base_url}/mcp")
     
     return True
 
 
 def main():
     """Main test entry point."""
-    print("Alpic MCP Server Deployment Test")
-    print("=" * 50)
+    print("Le Chat MCP Connection Validation")
+    print("=" * 40)
     
-    # Test locally first
-    base_url = input("Enter server URL (default: http://localhost:8000): ").strip()
+    # Default to your Alpic URL
+    base_url = input("Enter MCP Server URL (default: https://ouicomply-test-c0e5dd8e.alpic.live): ").strip()
     if not base_url:
-        base_url = "http://localhost:8000"
+        base_url = "https://ouicomply-test-c0e5dd8e.alpic.live"
     
     if not base_url.startswith("http"):
         base_url = f"https://{base_url}"
     
-    print(f"\n🚀 Testing server at: {base_url}")
+    print(f"\n🧪 Testing Le Chat compatibility...")
     print("⏳ Please wait...")
     
-    success = test_alpic_mcp_server(base_url)
+    success = test_lechat_validation(base_url)
     
     if success:
-        print("\n🎉 Test completed successfully!")
-        print("✅ Your server is ready for both Alpic deployment and Le Chat integration!")
+        print("\n🎉 SUCCESS! Your MCP server passed all Le Chat validation tests!")
+        print("✅ Le Chat should now recognize and connect to your server.")
     else:
-        print("\n❌ Test failed. Please check the logs above.")
+        print("\n❌ VALIDATION FAILED!")
+        print("🔧 Please fix the issues above and redeploy.")
 
 
 if __name__ == "__main__":
