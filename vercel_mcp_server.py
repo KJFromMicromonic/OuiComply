@@ -10,17 +10,12 @@ Version: 2.0.0
 License: Apache 2.0
 """
 
-import asyncio
 import json
 import logging
-import os
-import sys
 from datetime import datetime, UTC
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional
 
-# Add src directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+# No src imports to reduce package size
 
 # FastAPI imports for Vercel
 from fastapi import FastAPI, HTTPException, Request

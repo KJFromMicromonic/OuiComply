@@ -1,0 +1,76 @@
+# Vercel ignore file to reduce deployment size
+# Exclude unnecessary files and directories
+
+# Development files
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git
+.mypy_cache
+.pytest_cache
+.hypothesis
+
+# Documentation
+*.md
+docs/
+*.txt
+!requirements_vercel.txt
+
+# Test files
+tests/
+test_*
+*_test.py
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Large dependencies not needed for Vercel
+src/
+*.py
+!vercel_mcp_server.py
+
+# Alpic specific files
+alpic_fastmcp_server.py
+alpic.yaml
+requirements_alpic.txt
+lechat_mcp_server.py
+simple_mcp_rest_server.py
+mcp_rest_server.py
+mcp_fastmcp_server.py
+mcp_server_http.py
+mcp_server_standard.py
+start_mcp_server.py
+simple_mcp_server.py
+alpic_mcp_server.py
+simple_alpic_server.py
+ultra_fast_alpic_server.py
+instant_alpic_server.py
+robust_alpic_server.py
+minimal_alpic_server.py
+start_fastmcp_server.py
+mcp_server.py
+start_official_mcp_server.py
+test_alpic_deployment.py

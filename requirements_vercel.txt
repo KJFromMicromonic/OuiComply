@@ -1,29 +1,16 @@
 # OuiComply MCP Server Dependencies for Vercel Deployment
-# Optimized for FastAPI with HTTP endpoints
+# Minimal dependencies to stay under 250MB limit
 
-# Core FastAPI dependencies
-fastapi>=0.104.0
-uvicorn>=0.24.0
-pydantic>=2.10.3
+# Core FastAPI dependencies (minimal versions)
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
 
 # Core Python dependencies
-python-dotenv>=1.0.0
-structlog>=23.2.0
-
-# AI and ML dependencies
-mistralai>=1.9.10
+python-dotenv==1.0.0
 
 # HTTP and networking
-httpx>=0.25.0
-
-# Document processing
-PyPDF2>=3.0.0
-python-docx>=0.8.11
-Pillow>=10.0.0
-
-# Data processing
-pandas>=2.0.0
-numpy>=1.24.0
+httpx==0.25.2
 
 # Validation and schemas
-jsonschema>=4.17.0
+jsonschema==4.20.0
