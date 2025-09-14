@@ -22,11 +22,17 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 try:
     from mcp.server.fastmcp import FastMCP
+    from starlette.applications import Starlette
+    from starlette.routing import Route, Mount
+    from starlette.responses import JSONResponse
 except ImportError:
     print("MCP not installed. Installing...")
     import subprocess
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "mcp"])
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "mcp", "starlette"])
     from mcp.server.fastmcp import FastMCP
+    from starlette.applications import Starlette
+    from starlette.routing import Route, Mount
+    from starlette.responses import JSONResponse
 
 from mcp_server import OuiComplyMCPServer
 from src.tools.document_ai import DocumentAnalysisRequest
@@ -36,10 +42,30 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize FastMCP server
-app = FastMCP("OuiComply MCP Server")
+mcp_app = FastMCP("OuiComply MCP Server")
 
 # Initialize the underlying MCP server
 mcp_server = OuiComplyMCPServer()
+
+# Health check endpoint
+async def health_check(request):
+    """Health check endpoint for deployment platforms."""
+    return JSONResponse({
+        "status": "healthy",
+        "service": "OuiComply MCP Server",
+        "version": "1.0.0",
+        "timestamp": datetime.now(UTC).isoformat(),
+        "mcp_server": "running"
+    })
+
+# Create Starlette application with FastMCP and health check
+app = Starlette(
+    routes=[
+        Route("/health", health_check, methods=["GET"]),
+        # Mount FastMCP at the root using streamable HTTP
+        Mount("/", mcp_app.streamable_http_app())
+    ]
+)
 
 
 # Utility functions
@@ -77,7 +103,7 @@ def extract_content_from_mcp_result(result) -> Dict[str, Any]:
 
 # MCP Tools as FastMCP endpoints
 
-@app.tool(
+@mcp_app.tool(
     name="analyze_document",
     description="Analyze a document for compliance issues using AI-powered analysis with Mistral API"
 )
@@ -133,7 +159,7 @@ async def analyze_document(
         }
 
 
-@app.tool(
+@mcp_app.tool(
     name="update_memory",
     description="Update team memory with new compliance insights and learnings"
 )
@@ -187,7 +213,7 @@ async def update_memory(
         }
 
 
-@app.tool(
+@mcp_app.tool(
     name="get_compliance_status",
     description="Get current compliance status for a team across frameworks"
 )
@@ -239,7 +265,7 @@ async def get_compliance_status(
         }
 
 
-@app.tool(
+@mcp_app.tool(
     name="comprehensive_analysis",
     description="Perform comprehensive compliance analysis with structured output and LeChat actions"
 )
@@ -299,7 +325,7 @@ async def comprehensive_analysis(
         }
 
 
-@app.tool(
+@mcp_app.tool(
     name="automate_compliance_workflow",
     description="Automate compliance workflow based on document analysis"
 )
@@ -355,7 +381,7 @@ async def automate_compliance_workflow(
 
 # MCP Resources as FastMCP endpoints
 
-@app.resource(
+@mcp_app.resource(
     uri="mcp://compliance_frameworks",
     name="compliance_frameworks",
     description="Get available compliance frameworks with requirements and risk indicators",
@@ -394,7 +420,7 @@ async def get_compliance_frameworks() -> Dict[str, Any]:
         }
 
 
-@app.resource(
+@mcp_app.resource(
     uri="mcp://legal_templates",
     name="legal_templates",
     description="Get available legal document templates with required sections",
@@ -433,7 +459,7 @@ async def get_legal_templates() -> Dict[str, Any]:
         }
 
 
-@app.resource(
+@mcp_app.resource(
     uri="mcp://team_memory/{team_id}",
     name="team_memory",
     description="Get team memory and insights for a specific team",

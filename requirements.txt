@@ -2,6 +2,7 @@
 # Core MCP and FastMCP dependencies
 mcp>=1.14.0
 fastmcp>=0.1.0
+starlette>=0.27.0
 
 # Core Python dependencies
 pydantic>=2.10.3
