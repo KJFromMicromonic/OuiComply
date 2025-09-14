@@ -7,12 +7,12 @@ description: "OuiComply MCP Server - AI Assisted Legal Compliance Checker"
 
 # Build configuration
 build:
-  command: "pip install -r requirements.txt"
+  command: "pip install -r requirements_alpic.txt"
   python_version: "3.12"
 
 # Runtime configuration
 runtime:
-  command: "python lechat_mcp_server.py"
+  command: "python alpic_fastmcp_server.py"
   port: 8000
   health_check: "http://localhost:8000/health"
 

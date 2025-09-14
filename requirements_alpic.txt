@@ -1,0 +1,33 @@
+# OuiComply MCP Server Dependencies for Alpic Deployment
+# Optimized for FastMCP with stdio transport
+
+# Core MCP and FastMCP dependencies
+mcp>=1.14.0
+fastmcp>=0.1.0
+
+# Core Python dependencies
+pydantic>=2.10.3
+pydantic-settings>=2.1.0
+structlog>=23.2.0
+python-dotenv>=1.0.0
+
+# AI and ML dependencies
+mistralai>=1.9.10
+
+# HTTP and networking (minimal for stdio transport)
+httpx>=0.25.0
+
+# Document processing
+PyPDF2>=3.0.0
+python-docx>=0.8.11
+Pillow>=10.0.0
+
+# Data processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Validation and schemas
+jsonschema>=4.17.0
+
+# Async support
+asyncio-mqtt>=0.16.0
