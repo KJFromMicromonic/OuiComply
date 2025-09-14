@@ -200,7 +200,19 @@ Once downloaded, these contracts can be used for:
 
 ### Starting the MCP Server
 
-#### Local Development
+#### Official MCP Server (Recommended)
+```bash
+# Install dependencies
+pip install -r requirements_mcp.txt
+
+# Run the official MCP server
+python mcp_server_official_sdk.py
+
+# Or use the startup script
+python run_official_mcp.py
+```
+
+#### Legacy MCP Server
 ```bash
 python -m src.mcp_server
 ```
@@ -340,10 +352,22 @@ Content-Type: application/json
 
 ### Testing the API
 
+#### Test Function-Based Routing
 Use the provided test script to verify all endpoints:
 
 ```bash
 python test_function_routing.py
+```
+
+#### Test Official MCP Server
+Test the official MCP server implementation:
+
+```bash
+# Start the official MCP server
+python mcp_server_official_sdk.py
+
+# In another terminal, run the test
+python test_official_mcp_server.py
 ```
 
 ### Available Tools

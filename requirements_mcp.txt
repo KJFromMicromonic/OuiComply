@@ -1,5 +1,6 @@
 # Official MCP Server for Le Chat Integration
-mcp>=1.6.0
+mcp>=1.14.0
+fastmcp>=0.1.0
 
 # HTTP client for testing
 requests>=2.32.3
@@ -13,3 +14,5 @@ structlog>=23.2.0
 # Additional dependencies for MCP protocol
 websockets>=11.0.3
 aiofiles>=23.2.1
+uvicorn>=0.24.0
+fastapi>=0.104.0
