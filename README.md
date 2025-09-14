@@ -546,6 +546,145 @@ Risk levels:
 
 ## 🧪 Testing
 
+### MCP Inspector Debugging
+
+OuiComply includes comprehensive debugging tools using the [MCP Inspector](https://github.com/modelcontextprotocol/inspector) for visual testing and debugging of MCP servers.
+
+#### Quick Start with MCP Inspector
+
+1. **Install MCP Inspector** (if not already installed):
+   ```bash
+   npm install -g @modelcontextprotocol/inspector
+   ```
+
+2. **Use the debug helper script**:
+   ```bash
+   # Check dependencies
+   python debug_with_inspector.py --check
+   
+   # List available servers
+   python debug_with_inspector.py --list
+   
+   # Start a server with inspector
+   python debug_with_inspector.py --server standard --inspector
+   ```
+
+3. **Windows users can use batch scripts**:
+   ```cmd
+   # Check dependencies
+   debug_mcp.bat check
+   
+   # Start standard server
+   debug_mcp.bat standard
+   
+   # Launch inspector with server
+   debug_mcp.bat inspector standard
+   ```
+
+4. **PowerShell users**:
+   ```powershell
+   # Check dependencies
+   .\debug_mcp.ps1 check
+   
+   # Start FastMCP server
+   .\debug_mcp.ps1 fastmcp
+   
+   # Test server via CLI
+   .\debug_mcp.ps1 test standard tools/list
+   ```
+
+#### Available MCP Servers
+
+The project includes multiple MCP server implementations for different use cases:
+
+- **`ouicomply-standard`**: Full-featured MCP server with all compliance tools
+- **`ouicomply-fastmcp`**: FastMCP implementation for high-performance scenarios
+- **`ouicomply-alpic`**: ALPIC-optimized server for deployment
+- **`ouicomply-vercel`**: Vercel serverless deployment
+- **`ouicomply-local-http`**: Local HTTP server for testing
+- **`ouicomply-sse`**: Server-Sent Events implementation
+
+#### MCP Inspector Configuration
+
+The project includes a pre-configured `mcp-inspector-config.json` file with all server configurations:
+
+```json
+{
+  "mcpServers": {
+    "ouicomply-standard": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["mcp_server.py"],
+      "env": {
+        "PYTHONPATH": ".",
+        "MISTRAL_KEY": "${MISTRAL_KEY}"
+      }
+    }
+  }
+}
+```
+
+#### Debugging Workflow
+
+1. **Start with dependency check**:
+   ```bash
+   python debug_with_inspector.py --check
+   ```
+
+2. **List available servers**:
+   ```bash
+   python debug_with_inspector.py --list
+   ```
+
+3. **Test a specific server**:
+   ```bash
+   python debug_with_inspector.py --test standard --method tools/list
+   ```
+
+4. **Launch visual inspector**:
+   ```bash
+   python debug_with_inspector.py --server standard --inspector
+   ```
+
+5. **Access the web interface** at `http://localhost:6274`
+
+#### Inspector Features
+
+The MCP Inspector provides:
+
+- **Visual Tool Testing**: Interactive forms for testing all MCP tools
+- **Resource Browser**: Navigate and view MCP resources
+- **Request/Response Logging**: See all MCP protocol communications
+- **Error Debugging**: Detailed error messages and stack traces
+- **Real-time Monitoring**: Live updates of server status
+- **CLI Mode**: Command-line testing for automation
+
+#### Troubleshooting
+
+**Common Issues:**
+
+1. **MCP Inspector not found**:
+   ```bash
+   npm install -g @modelcontextprotocol/inspector
+   ```
+
+2. **Python dependencies missing**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Server won't start**:
+   - Check environment variables (MISTRAL_KEY, etc.)
+   - Verify Python path and dependencies
+   - Check server logs for specific errors
+
+4. **Inspector can't connect**:
+   - Ensure server is running before launching inspector
+   - Check configuration file paths
+   - Verify server name matches configuration
+
+### Unit Testing
+
 Run the test suite:
 
 ```bash

@@ -11,5 +11,10 @@
       "src": "/(.*)",
       "dest": "/api/index.py"
     }
-  ]
+  ],
+  "env": {
+    "MISTRAL_KEY": "@mistral_key",
+    "LECHAT_API_KEY": "@lechat_api_key",
+    "GITHUB_TOKEN": "@github_token"
+  }
 }

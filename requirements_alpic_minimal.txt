@@ -1,0 +1,8 @@
+# OuiComply MCP Server - Minimal Dependencies for ALPIC/Lambda
+# Zero external dependencies to prevent Lambda crashes
+
+# No external dependencies - pure Python only
+# This ensures instant startup and no cold start timeouts
+
+# Optional: Add only if absolutely necessary
+# python-dotenv==1.0.0

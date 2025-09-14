@@ -1,0 +1,63 @@
+{
+  "mcpServers": {
+    "ouicomply-standard": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["mcp_server.py"],
+      "env": {
+        "PYTHONPATH": ".",
+        "MISTRAL_KEY": "${MISTRAL_KEY}",
+        "LECHAT_API_KEY": "${LECHAT_API_KEY}",
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}",
+        "LOG_LEVEL": "INFO"
+      }
+    },
+    "ouicomply-fastmcp": {
+      "type": "stdio", 
+      "command": "python",
+      "args": ["mcp_fastmcp_server.py"],
+      "env": {
+        "PYTHONPATH": ".",
+        "MISTRAL_KEY": "${MISTRAL_KEY}",
+        "LECHAT_API_KEY": "${LECHAT_API_KEY}",
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}",
+        "LOG_LEVEL": "INFO"
+      }
+    },
+    "ouicomply-alpic": {
+      "type": "stdio",
+      "command": "python", 
+      "args": ["alpic_fastmcp_server.py"],
+      "env": {
+        "PYTHONPATH": ".",
+        "MISTRAL_KEY": "${MISTRAL_KEY}",
+        "ALPIC_ENV": "true",
+        "LOG_LEVEL": "INFO"
+      }
+    },
+    "ouicomply-vercel": {
+      "type": "streamable-http",
+      "url": "https://your-vercel-deployment.vercel.app/mcp",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+    "ouicomply-local-http": {
+      "type": "streamable-http",
+      "url": "http://localhost:3000/mcp",
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    },
+    "ouicomply-sse": {
+      "type": "sse",
+      "url": "http://localhost:3000/sse"
+    }
+  },
+  "settings": {
+    "MCP_SERVER_REQUEST_TIMEOUT": 30000,
+    "MCP_REQUEST_TIMEOUT_RESET_ON_PROGRESS": true,
+    "MCP_PROXY_FULL_ADDRESS": "http://localhost:6274",
+    "MCP_SERVER_LOG_LEVEL": "debug"
+  }
+}

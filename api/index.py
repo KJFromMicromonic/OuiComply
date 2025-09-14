@@ -1,75 +1,52 @@
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 import json
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
-app = FastAPI(title="OuiComply MCP Server")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.get("/")
-def read_root():
-    return {
-        "name": "ouicomply-mcp",
-        "version": "1.0.0",
-        "status": "running",
-        "timestamp": datetime.now(UTC).isoformat()
-    }
-
-@app.get("/health")
-def health():
-    return {
-        "status": "healthy",
-        "server": "ouicomply-mcp",
-        "timestamp": datetime.now(UTC).isoformat()
-    }
-
-@app.post("/mcp")
-def mcp_endpoint(request: dict):
-    return {
-        "jsonrpc": "2.0",
-        "id": request.get("id"),
-        "result": {
-            "message": "MCP endpoint working",
-            "timestamp": datetime.now(UTC).isoformat()
-        }
-    }
-
-# Vercel handler function
 def handler(request):
     """
-    Vercel serverless function handler.
+    Vercel serverless function handler for OuiComply MCP Server.
     
-    This function is called by Vercel for each request and routes it
-    to the appropriate FastAPI endpoint.
+    This function handles all HTTP requests and routes them to appropriate
+    endpoints based on the path and method.
     
     @param request The incoming HTTP request from Vercel
-    @returns JSONResponse with the appropriate response
+    @returns Dictionary with statusCode, headers, and body
     """
     try:
-        # Get the path and method from the request
+        # Extract request information
         path = request.get('path', '/')
         method = request.get('httpMethod', 'GET')
         body = request.get('body', '')
         headers = request.get('headers', {})
+        query = request.get('queryStringParameters', {}) or {}
+        
+        # Set CORS headers
+        cors_headers = {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Max-Age": "86400"
+        }
+        
+        # Handle OPTIONS requests for CORS
+        if method == 'OPTIONS':
+            return {
+                "statusCode": 200,
+                "headers": cors_headers,
+                "body": ""
+            }
         
         # Handle root path
         if path == '/' or path == '':
             return {
                 "statusCode": 200,
-                "headers": {"Content-Type": "application/json"},
+                "headers": cors_headers,
                 "body": json.dumps({
                     "name": "ouicomply-mcp",
                     "version": "1.0.0",
                     "status": "running",
-                    "timestamp": datetime.now(UTC).isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "endpoints": ["/", "/health", "/mcp"]
                 })
             }
         
@@ -77,55 +54,105 @@ def handler(request):
         elif path == '/health':
             return {
                 "statusCode": 200,
-                "headers": {"Content-Type": "application/json"},
+                "headers": cors_headers,
                 "body": json.dumps({
                     "status": "healthy",
                     "server": "ouicomply-mcp",
-                    "timestamp": datetime.now(UTC).isoformat()
+                    "version": "1.0.0",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "uptime": "running"
                 })
             }
         
         # Handle MCP endpoint
-        elif path == '/mcp' and method == 'POST':
-            try:
-                request_data = json.loads(body) if body else {}
-                return {
-                    "statusCode": 200,
-                    "headers": {"Content-Type": "application/json"},
-                    "body": json.dumps({
+        elif path == '/mcp':
+            if method == 'POST':
+                try:
+                    # Parse request body
+                    request_data = json.loads(body) if body else {}
+                    
+                    # Handle MCP JSON-RPC request
+                    mcp_response = {
                         "jsonrpc": "2.0",
-                        "id": request_data.get("id"),
+                        "id": request_data.get("id", "unknown"),
                         "result": {
                             "message": "MCP endpoint working",
-                            "timestamp": datetime.now(UTC).isoformat()
+                            "server": "ouicomply-mcp",
+                            "version": "1.0.0",
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "capabilities": {
+                                "tools": True,
+                                "resources": True,
+                                "prompts": False
+                            }
                         }
+                    }
+                    
+                    return {
+                        "statusCode": 200,
+                        "headers": cors_headers,
+                        "body": json.dumps(mcp_response)
+                    }
+                    
+                except json.JSONDecodeError as e:
+                    return {
+                        "statusCode": 400,
+                        "headers": cors_headers,
+                        "body": json.dumps({
+                            "error": "Invalid JSON in request body",
+                            "message": str(e)
+                        })
+                    }
+            else:
+                return {
+                    "statusCode": 405,
+                    "headers": cors_headers,
+                    "body": json.dumps({
+                        "error": "Method Not Allowed",
+                        "message": f"Method {method} not allowed for /mcp endpoint. Use POST."
                     })
                 }
-            except json.JSONDecodeError:
-                return {
-                    "statusCode": 400,
-                    "headers": {"Content-Type": "application/json"},
-                    "body": json.dumps({"error": "Invalid JSON in request body"})
-                }
+        
+        # Handle API info endpoint
+        elif path == '/api':
+            return {
+                "statusCode": 200,
+                "headers": cors_headers,
+                "body": json.dumps({
+                    "api": "OuiComply MCP Server API",
+                    "version": "1.0.0",
+                    "endpoints": {
+                        "GET /": "Server information",
+                        "GET /health": "Health check",
+                        "POST /mcp": "MCP protocol endpoint"
+                    },
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                })
+            }
         
         # Handle 404 for unknown paths
         else:
             return {
                 "statusCode": 404,
-                "headers": {"Content-Type": "application/json"},
+                "headers": cors_headers,
                 "body": json.dumps({
                     "error": "Not Found",
                     "message": f"Path {path} not found",
-                    "available_endpoints": ["/", "/health", "/mcp"]
+                    "available_endpoints": ["/", "/health", "/mcp", "/api"],
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 })
             }
     
     except Exception as e:
         return {
             "statusCode": 500,
-            "headers": {"Content-Type": "application/json"},
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            },
             "body": json.dumps({
                 "error": "Internal Server Error",
-                "message": str(e)
+                "message": str(e),
+                "timestamp": datetime.now(timezone.utc).isoformat()
             })
         }
